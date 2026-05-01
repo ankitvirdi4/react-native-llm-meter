@@ -24,7 +24,7 @@ swap the dependency to a version range:
 // package.json
 {
   "dependencies": {
-    "react-native-llm-meter": "^0.1.0"
+    "react-native-llm-meter": "^0.2.0"
   }
 }
 ```

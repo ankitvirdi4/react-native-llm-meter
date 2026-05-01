@@ -2,12 +2,13 @@
 
 ## Supported versions
 
-Only the latest minor release line receives security fixes. v0.1.x is the
+Only the latest minor release line receives security fixes. v0.2.x is the
 current line.
 
 | Version | Supported |
 |---------|-----------|
-| 0.1.x   | yes       |
+| 0.2.x   | yes       |
+| 0.1.x   | no        |
 | < 0.1   | no        |
 
 ## Reporting a vulnerability

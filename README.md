@@ -442,10 +442,11 @@ Implement the `Storage` interface (`append`, `query`, `clear`) and pass it to
 are reference implementations.
 
 **Is this production ready?**
-v0.1.x is in active use and tested at 99%+ line coverage with realistic
-streaming, migration, and concurrency tests. v0.2.0 just shipped under the
-`next` dist tag for soak. The API will freeze at v1.0; anything before that
-may have small breaking changes documented in CHANGELOG.
+v0.2.x is the current line, tested at 99%+ line coverage with realistic
+streaming, migration, and concurrency tests, and verified end to end via an
+isolated `npm pack` plus install plus runtime smoke test. The API will freeze
+at v1.0; anything before that may have small breaking changes documented in
+CHANGELOG.
 
 ## Troubleshooting
 
