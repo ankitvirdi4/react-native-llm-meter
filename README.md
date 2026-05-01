@@ -23,8 +23,7 @@ Node only dependencies, missing AsyncStorage adapters, and broken streaming.
 
 Currently reserving the npm name. Real release coming.
 
-Built by [Ankit Virdi](https://github.com/ankitvirdi4). Engineer, CTO @ Dopami,
-building tools for the mobile AI ecosystem.
+Built by [Ankit Virdi](https://github.com/ankitvirdi4).
 
 ## License
 

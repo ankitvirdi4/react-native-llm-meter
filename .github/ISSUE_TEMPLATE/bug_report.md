@@ -5,8 +5,6 @@ title: "[bug] "
 labels: bug
 ---
 
-Thanks for taking the time to report a bug! 🙏
-
 **What happened?**
 A clear, short description of the bug.
 

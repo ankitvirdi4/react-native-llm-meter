@@ -5,8 +5,6 @@ title: "[feature] "
 labels: enhancement
 ---
 
-Thanks for the idea! ✨
-
 **What would you like to see?**
 A clear, short description of the feature.
 

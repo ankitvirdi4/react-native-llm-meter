@@ -39,10 +39,9 @@ describing what you'd like to work on and we'll scope something together.
 
 ## Code of conduct
 
-Be kind. Assume good intent. We're all here because we care about making mobile
-AI tooling better.
+Be kind. Assume good intent.
 
 ## Questions?
 
 Open a [discussion](https://github.com/ankitvirdi4/react-native-llm-meter/discussions)
-or reach out via the repo. 💛
+or reach out via the repo.

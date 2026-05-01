@@ -16,5 +16,3 @@
 - [ ] Typecheck passes (`npm run typecheck`)
 - [ ] Build succeeds (`npm run build`)
 - [ ] Updated docs / README if behavior changed
-
-Thanks for contributing! 💛
