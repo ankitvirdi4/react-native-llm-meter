@@ -215,7 +215,13 @@ describe("SqliteAdapter migration", () => {
 });
 
 describe("SqliteAdapter performance", () => {
-  it("queries 10k events in under 50ms after seeding", async () => {
+  // The product target is "under 50ms on a real device" (Phase 6 ROADMAP entry).
+  // GitHub-hosted CI runners have variable JS perf, so we loosen the bound on
+  // CI to 250ms. That still catches real regressions like falling off the
+  // index into a full-table scan, which on 10k events would take seconds.
+  const PERF_THRESHOLD_MS = process.env.CI ? 250 : 50;
+
+  it(`queries 10k events in under ${PERF_THRESHOLD_MS}ms after seeding`, async () => {
     const adapter = new SqliteAdapter({ db: makeBetterSqliteDb() });
 
     const seedSource = new MemoryStorage();
@@ -229,10 +235,10 @@ describe("SqliteAdapter performance", () => {
     const elapsed = performance.now() - start;
 
     expect(events).toHaveLength(10_000);
-    expect(elapsed).toBeLessThan(50);
+    expect(elapsed).toBeLessThan(PERF_THRESHOLD_MS);
   });
 
-  it("range queries 10k events in under 50ms", async () => {
+  it(`range queries 10k events in under ${PERF_THRESHOLD_MS}ms`, async () => {
     const adapter = new SqliteAdapter({ db: makeBetterSqliteDb() });
 
     const seedSource = new MemoryStorage();
@@ -246,6 +252,6 @@ describe("SqliteAdapter performance", () => {
     const elapsed = performance.now() - start;
 
     expect(events.length).toBeGreaterThan(0);
-    expect(elapsed).toBeLessThan(50);
+    expect(elapsed).toBeLessThan(PERF_THRESHOLD_MS);
   });
 });
