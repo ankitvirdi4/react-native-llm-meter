@@ -1,6 +1,6 @@
 import type { MeterEvent } from "./types.js";
 
-export type GroupBy = "model" | "provider" | "day";
+export type GroupBy = "model" | "provider" | "day" | { tag: string };
 
 export interface Summary {
   count: number;
@@ -81,10 +81,11 @@ export function summarize(events: MeterEvent[]): Summary {
   };
 }
 
-function groupKey(event: MeterEvent, by: GroupBy): string {
+function groupKey(event: MeterEvent, by: GroupBy): string | undefined {
   if (by === "model") return event.model;
   if (by === "provider") return event.provider;
-  return new Date(event.timestamp).toISOString().slice(0, 10);
+  if (by === "day") return new Date(event.timestamp).toISOString().slice(0, 10);
+  return event.tags?.[by.tag];
 }
 
 export function summarizeBy(
@@ -94,6 +95,7 @@ export function summarizeBy(
   const groups = new Map<string, MeterEvent[]>();
   for (const event of events) {
     const key = groupKey(event, by);
+    if (key === undefined) continue;
     let bucket = groups.get(key);
     if (!bucket) {
       bucket = [];

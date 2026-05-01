@@ -153,4 +153,19 @@ describe("summarizeBy", () => {
   it("returns an empty record for empty input", () => {
     expect(summarizeBy([], "model")).toEqual({});
   });
+
+  it("groups by tag value, skipping events without that tag", () => {
+    const events = [
+      makeEvent({ requestId: "a", tags: { userId: "alice" } }),
+      makeEvent({ requestId: "b", tags: { userId: "bob" } }),
+      makeEvent({ requestId: "c", tags: { userId: "alice" } }),
+      makeEvent({ requestId: "d" }), // no tags
+      makeEvent({ requestId: "e", tags: { sessionId: "x" } }), // wrong tag
+    ];
+    const result = summarizeBy(events, { tag: "userId" });
+
+    expect(Object.keys(result).sort()).toEqual(["alice", "bob"]);
+    expect(result.alice.count).toBe(2);
+    expect(result.bob.count).toBe(1);
+  });
 });

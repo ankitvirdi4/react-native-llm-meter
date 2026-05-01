@@ -2,7 +2,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { MeterProvider } from "../hooks.js";
+import { MeterProvider } from "../react/hooks.js";
 import { Meter } from "../meter.js";
 import { MeterOverlay } from "./MeterOverlay.js";
 

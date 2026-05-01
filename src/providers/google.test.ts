@@ -269,6 +269,167 @@ describe("wrapGoogle streaming", () => {
   });
 });
 
+describe("isGoogleLegacyClient", () => {
+  it("returns true for clients with getGenerativeModel", async () => {
+    const { isGoogleLegacyClient } = await import("./google.js");
+    expect(isGoogleLegacyClient({ getGenerativeModel: () => ({}) })).toBe(true);
+  });
+  it("returns false otherwise", async () => {
+    const { isGoogleLegacyClient } = await import("./google.js");
+    expect(isGoogleLegacyClient(null)).toBe(false);
+    expect(isGoogleLegacyClient({})).toBe(false);
+    expect(isGoogleLegacyClient({ getGenerativeModel: 42 })).toBe(false);
+  });
+});
+
+describe("wrapGoogleLegacy", () => {
+  it("records a non streaming generateContent call", async () => {
+    const { wrapGoogleLegacy } = await import("./google.js");
+    const meter = new Meter();
+    const generateContent = vi.fn(async () => ({
+      response: {
+        usageMetadata: {
+          promptTokenCount: 100,
+          candidatesTokenCount: 50,
+        },
+      },
+    }));
+    const fakeClient = {
+      getGenerativeModel: vi.fn((_p: { model: string }) => ({
+        generateContent,
+      })),
+    };
+    const wrapped = wrapGoogleLegacy(fakeClient as never, meter);
+    const model = wrapped.getGenerativeModel({ model: "gemini-2.0-flash" });
+    await model.generateContent("hello");
+    await meter.flush();
+
+    const event = (await meter.getEvents())[0];
+    expect(event.provider).toBe("google");
+    expect(event.model).toBe("gemini-2.0-flash");
+    expect(event.inputTokens).toBe(100);
+    expect(event.outputTokens).toBe(50);
+  });
+
+  it("records error path with zero tokens", async () => {
+    const { wrapGoogleLegacy } = await import("./google.js");
+    const meter = new Meter();
+    const generateContent = vi.fn(async () => {
+      throw new Error("legacy boom");
+    });
+    const fakeClient = {
+      getGenerativeModel: vi.fn(() => ({ generateContent })),
+    };
+    const wrapped = wrapGoogleLegacy(fakeClient as never, meter);
+    const model = wrapped.getGenerativeModel({ model: "gemini-1.5-flash" });
+    await expect(model.generateContent("hi")).rejects.toThrow("legacy boom");
+    await meter.flush();
+
+    const event = (await meter.getEvents())[0];
+    expect(event.inputTokens).toBe(0);
+    expect(event.outputTokens).toBe(0);
+  });
+
+  it("records streaming via generateContentStream with TTFT", async () => {
+    const { wrapGoogleLegacy } = await import("./google.js");
+    const meter = new Meter();
+    async function* chunks() {
+      yield { candidates: [{ content: { parts: [{ text: "hi" }] } }] };
+      yield {
+        usageMetadata: { promptTokenCount: 30, candidatesTokenCount: 10 },
+      };
+    }
+    const generateContentStream = vi.fn(async () => ({
+      stream: chunks(),
+      response: Promise.resolve({}),
+    }));
+    const fakeClient = {
+      getGenerativeModel: vi.fn(() => ({
+        generateContent: vi.fn(),
+        generateContentStream,
+      })),
+    };
+    const wrapped = wrapGoogleLegacy(fakeClient as never, meter);
+    const model = wrapped.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const result = await model.generateContentStream!("hi");
+    for await (const _ of result.stream) {
+      // drain
+    }
+    await meter.flush();
+
+    const event = (await meter.getEvents())[0];
+    expect(event.model).toBe("gemini-1.5-pro");
+    expect(event.inputTokens).toBe(30);
+    expect(event.outputTokens).toBe(10);
+    expect(event.ttftMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("wrapGoogleLegacy stream error path", () => {
+  it("records zero token event when the legacy stream throws", async () => {
+    const { wrapGoogleLegacy } = await import("./google.js");
+    const meter = new Meter();
+    async function* throwing() {
+      yield { candidates: [{ content: { parts: [{ text: "hi" }] } }] };
+      throw new Error("legacy stream broke");
+    }
+    const generateContentStream = vi.fn(async () => ({
+      stream: throwing(),
+      response: Promise.resolve({}),
+    }));
+    const fakeClient = {
+      getGenerativeModel: vi.fn(() => ({
+        generateContent: vi.fn(),
+        generateContentStream,
+      })),
+    };
+    const wrapped = wrapGoogleLegacy(fakeClient as never, meter);
+    const model = wrapped.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const result = await model.generateContentStream!("hi");
+
+    await expect(async () => {
+      for await (const _ of result.stream) {
+        // drain
+      }
+    }).rejects.toThrow("legacy stream broke");
+
+    await meter.flush();
+    const event = (await meter.getEvents())[0];
+    expect(event.inputTokens).toBe(0);
+    expect(event.outputTokens).toBe(0);
+  });
+
+  it("returns a model without generateContentStream when the source omits it", async () => {
+    const { wrapGoogleLegacy } = await import("./google.js");
+    const meter = new Meter();
+    const fakeClient = {
+      getGenerativeModel: vi.fn(() => ({
+        generateContent: vi.fn(async () => ({ response: {} })),
+      })),
+    };
+    const wrapped = wrapGoogleLegacy(fakeClient as never, meter);
+    const model = wrapped.getGenerativeModel({ model: "gemini-1.5-flash" });
+    expect(model.generateContentStream).toBeUndefined();
+  });
+
+  it("preserves other model methods through the proxy", async () => {
+    const { wrapGoogleLegacy } = await import("./google.js");
+    const meter = new Meter();
+    const countTokens = vi.fn(async () => ({ totalTokens: 7 }));
+    const fakeClient = {
+      getGenerativeModel: vi.fn(() => ({
+        generateContent: vi.fn(),
+        countTokens,
+      })),
+    };
+    const wrapped = wrapGoogleLegacy(fakeClient as never, meter);
+    const model = wrapped.getGenerativeModel({ model: "gemini-1.5-flash" });
+    expect(
+      await (model as unknown as { countTokens: () => Promise<{ totalTokens: number }> }).countTokens(),
+    ).toEqual({ totalTokens: 7 });
+  });
+});
+
 describe("Meter.wrap dispatching", () => {
   it("dispatches to wrapGoogle for Google-shaped clients", async () => {
     const meter = new Meter();

@@ -13,6 +13,7 @@ export default defineConfig({
         "src/types.ts",
         "src/storage/types.ts",
         "src/overlay/index.ts",
+        "src/react/index.ts",
       ],
     },
   },

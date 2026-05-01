@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.0 (2026-05-01)
+
+Closes the remaining four review weaknesses. Breaking changes ship under `next` dist tag first; promote to `latest` after a soak window.
+
+### Breaking
+
+- Hooks moved to `react-native-llm-meter/react` subpath. The main entry still re-exports them as a deprecation shim; will be removed in v0.3.
+- `useBudget` signature changed: `useBudget(threshold, options?)`. Default timezone is now `local` (was implicit UTC). Pass `{ timezone: "utc" }` to keep the v0.1.x behavior. New options: `{ period: "day" | "week" | "month"; timezone: "local" | "utc" }`. Returns now include `periodStart`.
+
+### Added
+
+- **Tagging** (closes review #4). `MeterEvent.tags?: Record<string, string>` for grouping events by `userId`, `sessionId`, `featureName`, etc. `summarizeBy(events, { tag: "userId" })` groups by tag value, skipping events that lack the tag. SQLite schema gains a `tags` column (JSON), migrated transparently for existing databases.
+- **Budget periods + local timezone** (closes review #5). `useBudget` and `setBudget` accept `period` and `timezone`. Local is the new default for hooks; matches user expectations for end facing budget UIs.
+- **Google legacy SDK support** (closes review #8). `wrapGoogleLegacy` and `isGoogleLegacyClient` for the older `@google/generative-ai` shape (`client.getGenerativeModel(...)`). Streaming, non streaming, and TTFT all supported. `Meter.wrap` dispatcher tries modern first, legacy second.
+- **Bundle split for hooks** (closes review #1). Subpath `react-native-llm-meter/react` exports the React side (MeterProvider, useMeter, useMetrics, useBudget). Non React consumers importing the main entry no longer pull `react` into their type graph.
+
+### Migrations
+
+- SqliteAdapter adds a `tags` column. Older databases upgrade transparently via `ALTER TABLE ADD COLUMN`.
+
+### Notes
+
+- Test count: 196 (up from 181). Coverage 99.44% lines, 97.14% branches.
+- Recommended publish flow: `npm publish --tag next --access public`. After a soak window: `npm dist-tag add react-native-llm-meter@0.2.0 latest`.
+
 ## 0.1.4 (2026-05-01)
 
 ### Added

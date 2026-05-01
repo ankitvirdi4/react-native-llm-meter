@@ -3,6 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    react: "src/react/index.ts",
     overlay: "src/overlay/index.ts",
   },
   format: ["esm", "cjs"],

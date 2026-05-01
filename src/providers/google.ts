@@ -49,6 +49,152 @@ export function isGoogleClient(client: unknown): client is GoogleLike {
   return typeof (models as { generateContent?: unknown }).generateContent === "function";
 }
 
+// Legacy @google/generative-ai shape
+export interface GoogleLegacyModel {
+  generateContent: (params: unknown) => Promise<GoogleLegacyResult>;
+  generateContentStream?: (params: unknown) => Promise<GoogleLegacyStreamResult>;
+  [key: string]: unknown;
+}
+
+export interface GoogleLegacyClient {
+  getGenerativeModel: (params: { model: string; [key: string]: unknown }) => GoogleLegacyModel;
+  [key: string]: unknown;
+}
+
+export interface GoogleLegacyResult {
+  response?: {
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+    };
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface GoogleLegacyStreamResult {
+  stream: AsyncIterable<{
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+    };
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    [key: string]: unknown;
+  }> & object;
+  response?: Promise<GoogleLegacyResult["response"]>;
+}
+
+export function isGoogleLegacyClient(client: unknown): client is GoogleLegacyClient {
+  if (!client || typeof client !== "object") return false;
+  return (
+    typeof (client as { getGenerativeModel?: unknown }).getGenerativeModel ===
+    "function"
+  );
+}
+
+export function wrapGoogleLegacy<T extends GoogleLegacyClient>(
+  client: T,
+  meter: Meter,
+): T {
+  const originalGetModel = client.getGenerativeModel.bind(client);
+
+  const wrappedGetModel: GoogleLegacyClient["getGenerativeModel"] = (params) => {
+    const modelName = params.model;
+    const model = originalGetModel(params);
+    const originalGenerateContent = model.generateContent.bind(model);
+    const originalGenerateContentStream = model.generateContentStream?.bind(model);
+
+    const meteredGenerate = async (genParams: unknown): Promise<GoogleLegacyResult> => {
+      const start = Date.now();
+      try {
+        const result = await originalGenerateContent(genParams);
+        const usage = result.response?.usageMetadata;
+        meter.record({
+          provider: "google",
+          model: modelName,
+          inputTokens: usage?.promptTokenCount ?? 0,
+          outputTokens: usage?.candidatesTokenCount ?? 0,
+          latencyMs: Date.now() - start,
+        });
+        return result;
+      } catch (err) {
+        meter.record({
+          provider: "google",
+          model: modelName,
+          inputTokens: 0,
+          outputTokens: 0,
+          latencyMs: Date.now() - start,
+        });
+        throw err;
+      }
+    };
+
+    const meteredStream = originalGenerateContentStream
+      ? async (genParams: unknown): Promise<GoogleLegacyStreamResult> => {
+          const start = Date.now();
+          const result = await originalGenerateContentStream(genParams);
+          let inputTokens = 0;
+          let outputTokens = 0;
+          let ttftMs: number | undefined;
+
+          const wrappedStream = wrapAsyncIterable(result.stream, {
+            onChunk: (chunk) => {
+              if (chunk.usageMetadata?.promptTokenCount !== undefined) {
+                inputTokens = chunk.usageMetadata.promptTokenCount;
+              }
+              if (chunk.usageMetadata?.candidatesTokenCount !== undefined) {
+                outputTokens = chunk.usageMetadata.candidatesTokenCount;
+              }
+              if (ttftMs === undefined) {
+                const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (typeof text === "string" && text.length > 0) {
+                  ttftMs = Date.now() - start;
+                }
+              }
+            },
+            onComplete: () => {
+              meter.record({
+                provider: "google",
+                model: modelName,
+                inputTokens,
+                outputTokens,
+                latencyMs: Date.now() - start,
+                ttftMs,
+              });
+            },
+            onError: () => {
+              meter.record({
+                provider: "google",
+                model: modelName,
+                inputTokens: 0,
+                outputTokens: 0,
+                latencyMs: Date.now() - start,
+                ttftMs,
+              });
+            },
+          });
+
+          return { ...result, stream: wrappedStream };
+        }
+      : undefined;
+
+    return new Proxy(model, {
+      get(target, prop, receiver) {
+        if (prop === "generateContent") return meteredGenerate;
+        if (prop === "generateContentStream" && meteredStream) return meteredStream;
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+  };
+
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      if (prop === "getGenerativeModel") return wrappedGetModel;
+      return Reflect.get(target, prop, receiver);
+    },
+  }) as T;
+}
+
 export function wrapGoogle<T extends GoogleLike>(client: T, meter: Meter): T {
   const meteredGenerate = async (
     params: GoogleGenerateParams,

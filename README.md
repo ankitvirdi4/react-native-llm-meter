@@ -69,9 +69,10 @@ model, tokens, latency, and cost.
 
 | Provider  | Detection                              | Notes                                        |
 |-----------|----------------------------------------|----------------------------------------------|
-| Anthropic | `client.messages.create`               | Streaming and non streaming                  |
-| OpenAI    | `client.chat.completions.create`       | For streaming, set `stream_options.include_usage = true` |
+| Anthropic | `client.messages.create`               | Streaming and non streaming, prompt cache aware |
+| OpenAI    | `client.chat.completions.create`       | Streaming auto enables `stream_options.include_usage` |
 | Google    | `client.models.generateContent`        | Modern `@google/genai` shape, also `generateContentStream` |
+| Google legacy | `client.getGenerativeModel`        | Legacy `@google/generative-ai` SDK            |
 
 ```ts
 // Anthropic
@@ -164,10 +165,14 @@ await sqlite.migrateFrom(asyncs, { clearSource: true });
 
 ## React hooks
 
+Hooks live on the `react-native-llm-meter/react` subpath in v0.2.0+. The main
+entry still re-exports them as a deprecation shim that fires a one time
+warning; the shim is removed in v0.3.
+
 Wrap your tree in `<MeterProvider meter={...}>`, then use hooks anywhere.
 
 ```tsx
-import { useMetrics, useBudget } from "react-native-llm-meter";
+import { MeterProvider, useMetrics, useBudget } from "react-native-llm-meter/react";
 
 function CostHud() {
   const { summary, byGroup } = useMetrics({ groupBy: "model" });
@@ -188,8 +193,39 @@ function CostHud() {
 `useMetrics({ from?, to?, groupBy? })` returns `{ summary, byGroup, loading, refresh }`.
 Auto refreshes when the meter records.
 
-`useBudget(thresholdUsd)` returns today's UTC spend, threshold, remaining, and
-an `overBudget` flag.
+`useBudget(thresholdUsd, options?)` returns the current period's spend,
+threshold, remaining, an `overBudget` flag, and `periodStart` (epoch ms).
+Options:
+
+- `period`: `'day' | 'week' | 'month'`, default `'day'`. Weeks start Monday.
+- `timezone`: `'local' | 'utc'`, default `'local'`. Local is what end users
+  expect for budget UIs; UTC is consistent across devices for telemetry.
+
+```ts
+useBudget(5, { period: "week", timezone: "local" });
+useBudget(80, { period: "month", timezone: "utc" });
+```
+
+## Tagging
+
+Attach arbitrary tags to events for grouping and filtering.
+
+```ts
+meter.record({
+  provider: "anthropic",
+  model: "claude-sonnet-4-6",
+  inputTokens: 100,
+  outputTokens: 50,
+  latencyMs: 200,
+  tags: { userId: "u_42", feature: "chat", releaseChannel: "beta" },
+});
+
+const byUser = summarizeBy(await meter.getEvents(), { tag: "userId" });
+console.log(byUser["u_42"].costUsd);
+```
+
+Events without the queried tag are skipped from the group result. SQLite
+stores tags as JSON; AsyncStorage and Memory adapters preserve them as is.
 
 ## Dev overlay
 

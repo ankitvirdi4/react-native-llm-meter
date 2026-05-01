@@ -27,6 +27,7 @@ interface EventRow {
   ttft_ms: number | null;
   cache_read_input_tokens: number | null;
   cache_creation_input_tokens: number | null;
+  tags: string | null;
 }
 
 interface ColumnInfo {
@@ -57,6 +58,14 @@ function rowToEvent(row: EventRow): MeterEvent {
     row.cache_creation_input_tokens !== undefined
   ) {
     event.cacheCreationInputTokens = row.cache_creation_input_tokens;
+  }
+  if (row.tags !== null && row.tags !== undefined) {
+    try {
+      const parsed = JSON.parse(row.tags) as Record<string, string>;
+      if (parsed && typeof parsed === "object") event.tags = parsed;
+    } catch {
+      // Corrupted tags, treat as absent.
+    }
   }
   return event;
 }
@@ -91,7 +100,8 @@ export class SqliteAdapter implements Storage {
          timestamp INTEGER NOT NULL,
          ttft_ms INTEGER NULL,
          cache_read_input_tokens INTEGER NULL,
-         cache_creation_input_tokens INTEGER NULL
+         cache_creation_input_tokens INTEGER NULL,
+         tags TEXT NULL
        )`,
     );
     const cols = await this.db.getAllAsync<ColumnInfo>(
@@ -113,6 +123,11 @@ export class SqliteAdapter implements Storage {
         `ALTER TABLE ${this.table} ADD COLUMN cache_creation_input_tokens INTEGER NULL`,
       );
     }
+    if (!colNames.has("tags")) {
+      await this.db.execAsync(
+        `ALTER TABLE ${this.table} ADD COLUMN tags TEXT NULL`,
+      );
+    }
     await this.db.execAsync(
       `CREATE INDEX IF NOT EXISTS idx_${this.table}_timestamp ON ${this.table}(timestamp)`,
     );
@@ -129,8 +144,8 @@ export class SqliteAdapter implements Storage {
     await this.db.runAsync(
       `INSERT OR REPLACE INTO ${this.table}
          (request_id, provider, model, input_tokens, output_tokens, latency_ms, cost_usd, timestamp,
-          ttft_ms, cache_read_input_tokens, cache_creation_input_tokens)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ttft_ms, cache_read_input_tokens, cache_creation_input_tokens, tags)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         event.requestId,
         event.provider,
@@ -143,6 +158,7 @@ export class SqliteAdapter implements Storage {
         event.ttftMs ?? null,
         event.cacheReadInputTokens ?? null,
         event.cacheCreationInputTokens ?? null,
+        event.tags ? JSON.stringify(event.tags) : null,
       ],
     );
   }

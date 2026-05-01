@@ -2,7 +2,12 @@ import { type BudgetOptions, setBudgetWatcher } from "./budget.js";
 import { computeCost } from "./pricing/compute.js";
 import { PRICING } from "./pricing/table.js";
 import { isAnthropicClient, wrapAnthropic } from "./providers/anthropic.js";
-import { isGoogleClient, wrapGoogle } from "./providers/google.js";
+import {
+  isGoogleClient,
+  isGoogleLegacyClient,
+  wrapGoogle,
+  wrapGoogleLegacy,
+} from "./providers/google.js";
 import { isOpenAIClient, wrapOpenAI } from "./providers/openai.js";
 import {
   type AttachRemoteSinkOptions,
@@ -90,6 +95,7 @@ export class Meter {
       ...(input.cacheCreationInputTokens !== undefined
         ? { cacheCreationInputTokens: input.cacheCreationInputTokens }
         : {}),
+      ...(input.tags !== undefined ? { tags: input.tags } : {}),
     };
 
     const promise = this.storage
@@ -140,8 +146,9 @@ export class Meter {
     if (isAnthropicClient(client)) return wrapAnthropic(client, this) as T;
     if (isOpenAIClient(client)) return wrapOpenAI(client, this) as T;
     if (isGoogleClient(client)) return wrapGoogle(client, this) as T;
+    if (isGoogleLegacyClient(client)) return wrapGoogleLegacy(client, this) as T;
     throw new Error(
-      "Unsupported client. react-native-llm-meter supports Anthropic, OpenAI, and Google.",
+      "Unsupported client. react-native-llm-meter supports Anthropic, OpenAI, Google (modern @google/genai), and legacy @google/generative-ai.",
     );
   }
 }

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 afterEach(() => {
   cleanup();
 });
-import { Meter } from "./meter.js";
+import { Meter } from "../meter.js";
 import { MeterProvider, useBudget, useMeter, useMetrics } from "./hooks.js";
 
 function wrapperFor(meter: Meter) {
@@ -141,7 +141,7 @@ describe("useBudget", () => {
 
   it("returns zero spend with no events", async () => {
     const meter = new Meter();
-    const { result } = renderHook(() => useBudget(5), {
+    const { result } = renderHook(() => useBudget(5, { timezone: "utc" }), {
       wrapper: wrapperFor(meter),
     });
     await waitFor(() => expect(result.current.spend).toBe(0));
@@ -153,7 +153,7 @@ describe("useBudget", () => {
   it("sums today's UTC spend and flags overBudget when crossed", async () => {
     const meter = new Meter();
 
-    const { result } = renderHook(() => useBudget(0.005), {
+    const { result } = renderHook(() => useBudget(0.005, { timezone: "utc" }), {
       wrapper: wrapperFor(meter),
     });
     await waitFor(() => expect(result.current.spend).toBe(0));
@@ -188,11 +188,100 @@ describe("useBudget", () => {
     });
     await meter.flush();
 
-    const { result } = renderHook(() => useBudget(0.001), {
+    const { result } = renderHook(() => useBudget(0.001, { timezone: "utc" }), {
       wrapper: wrapperFor(meter),
     });
 
     await waitFor(() => expect(result.current.spend).toBe(0));
     expect(result.current.overBudget).toBe(false);
+  });
+
+  it("supports weekly period in UTC starting Monday", async () => {
+    // 2026-05-01 is a Friday. Monday is 2026-04-27.
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 1000,
+      outputTokens: 1000,
+      latencyMs: 1,
+      timestamp: Date.parse("2026-04-28T08:00:00Z"), // Tuesday, in the same week
+    });
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 1000,
+      outputTokens: 1000,
+      latencyMs: 1,
+      timestamp: Date.parse("2026-04-26T08:00:00Z"), // Sunday, previous week
+    });
+    await meter.flush();
+
+    const { result } = renderHook(
+      () => useBudget(1, { period: "week", timezone: "utc" }),
+      { wrapper: wrapperFor(meter) },
+    );
+    await waitFor(() => expect(result.current.spend).toBeGreaterThan(0));
+    // Only the Tuesday event counts.
+    expect(result.current.spend).toBeCloseTo(0.006, 6);
+    expect(result.current.periodStart).toBe(Date.parse("2026-04-27T00:00:00Z"));
+  });
+
+  it("default timezone is local, day period exposes a periodStart", async () => {
+    const meter = new Meter();
+    const { result } = renderHook(() => useBudget(1), {
+      wrapper: wrapperFor(meter),
+    });
+    await waitFor(() => expect(result.current.spend).toBe(0));
+    // periodStart should be midnight in some timezone, not zero, not NaN.
+    expect(result.current.periodStart).toBeGreaterThan(0);
+    expect(Number.isFinite(result.current.periodStart)).toBe(true);
+  });
+
+  it("supports local weekly and monthly periods (smoke)", async () => {
+    const meter = new Meter();
+
+    const week = renderHook(
+      () => useBudget(1, { period: "week", timezone: "local" }),
+      { wrapper: wrapperFor(meter) },
+    );
+    const month = renderHook(
+      () => useBudget(1, { period: "month", timezone: "local" }),
+      { wrapper: wrapperFor(meter) },
+    );
+
+    await waitFor(() => expect(week.result.current.periodStart).toBeGreaterThan(0));
+    await waitFor(() => expect(month.result.current.periodStart).toBeGreaterThan(0));
+    // Both should be valid timestamps; their relation depends on the calendar.
+    expect(Number.isFinite(week.result.current.periodStart)).toBe(true);
+    expect(Number.isFinite(month.result.current.periodStart)).toBe(true);
+  });
+
+  it("supports monthly period in UTC", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 100,
+      outputTokens: 100,
+      latencyMs: 1,
+      timestamp: Date.parse("2026-05-15T08:00:00Z"),
+    });
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 100,
+      outputTokens: 100,
+      latencyMs: 1,
+      timestamp: Date.parse("2026-04-29T08:00:00Z"),
+    });
+    await meter.flush();
+
+    const { result } = renderHook(
+      () => useBudget(1, { period: "month", timezone: "utc" }),
+      { wrapper: wrapperFor(meter) },
+    );
+    await waitFor(() => expect(result.current.spend).toBeGreaterThan(0));
+    expect(result.current.periodStart).toBe(Date.parse("2026-05-01T00:00:00Z"));
   });
 });

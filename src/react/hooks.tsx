@@ -12,8 +12,8 @@ import {
   type Summary,
   summarize,
   summarizeBy,
-} from "./aggregate.js";
-import type { Meter } from "./meter.js";
+} from "../aggregate.js";
+import type { Meter } from "../meter.js";
 
 const MeterContext = createContext<Meter | null>(null);
 
@@ -78,27 +78,78 @@ export function useMetrics(opts: UseMetricsOptions = {}): UseMetricsResult {
   return { summary, byGroup, loading, refresh };
 }
 
+export type BudgetPeriod = "day" | "week" | "month";
+export type BudgetTimezone = "local" | "utc";
+
+export interface UseBudgetOptions {
+  period?: BudgetPeriod;
+  timezone?: BudgetTimezone;
+}
+
 export interface UseBudgetResult {
   spend: number;
   threshold: number;
   remaining: number;
   overBudget: boolean;
+  periodStart: number;
 }
 
-function startOfUtcDay(timestamp: number): number {
-  const d = new Date(timestamp);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+function periodStart(
+  now: number,
+  period: BudgetPeriod,
+  timezone: BudgetTimezone,
+): number {
+  const d = new Date(now);
+  if (timezone === "utc") {
+    if (period === "day") {
+      return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    }
+    if (period === "month") {
+      return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+    }
+    // week: Monday start
+    const day = d.getUTCDay();
+    const daysSinceMonday = (day + 6) % 7;
+    const startOfDay = Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+    );
+    return startOfDay - daysSinceMonday * 86_400_000;
+  }
+  // local timezone
+  if (period === "day") {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+  if (period === "month") {
+    return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  }
+  const day = d.getDay();
+  const daysSinceMonday = (day + 6) % 7;
+  const startOfDay = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+  ).getTime();
+  return startOfDay - daysSinceMonday * 86_400_000;
 }
 
-export function useBudget(threshold: number): UseBudgetResult {
+export function useBudget(
+  threshold: number,
+  options: UseBudgetOptions = {},
+): UseBudgetResult {
   const meter = useMeter();
+  const period = options.period ?? "day";
+  const timezone = options.timezone ?? "local";
   const [spend, setSpend] = useState(0);
+  const [from, setFrom] = useState(() => periodStart(Date.now(), period, timezone));
 
   const refresh = useCallback(async () => {
-    const from = startOfUtcDay(Date.now());
-    const events = await meter.getEvents({ from });
+    const start = periodStart(Date.now(), period, timezone);
+    setFrom(start);
+    const events = await meter.getEvents({ from: start });
     setSpend(summarize(events).costUsd);
-  }, [meter]);
+  }, [meter, period, timezone]);
 
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
@@ -116,5 +167,6 @@ export function useBudget(threshold: number): UseBudgetResult {
     threshold,
     remaining: Math.max(0, threshold - spend),
     overBudget: spend >= threshold,
+    periodStart: from,
   };
 }

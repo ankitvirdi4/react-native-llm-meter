@@ -230,6 +230,37 @@ describe("SqliteAdapter", () => {
     expect(events[0].cacheReadInputTokens).toBe(200);
   });
 
+  it("roundtrips events with tags", async () => {
+    const adapter = new SqliteAdapter({ db: makeBetterSqliteDb() });
+    await adapter.append(
+      makeEvent({
+        requestId: "tagged",
+        tags: { userId: "u1", session: "s1" },
+      }),
+    );
+    await adapter.append(makeEvent({ requestId: "untagged" }));
+
+    const events = await adapter.query();
+    const tagged = events.find((e) => e.requestId === "tagged");
+    const untagged = events.find((e) => e.requestId === "untagged");
+
+    expect(tagged?.tags).toEqual({ userId: "u1", session: "s1" });
+    expect(untagged?.tags).toBeUndefined();
+  });
+
+  it("treats a corrupted tags JSON as absent", async () => {
+    const db = makeBetterSqliteDb();
+    const adapter = new SqliteAdapter({ db });
+    await adapter.append(makeEvent({ requestId: "ok" }));
+    // Manually corrupt the tags column.
+    await db.runAsync(
+      `UPDATE llm_meter_events SET tags = '{not json' WHERE request_id = ?`,
+      ["ok"],
+    );
+    const events = await adapter.query();
+    expect(events[0].tags).toBeUndefined();
+  });
+
   it("supports a custom tableName", async () => {
     const db = makeBetterSqliteDb();
     const adapter = new SqliteAdapter({ db, tableName: "custom_table" });

@@ -1,4 +1,4 @@
-export const VERSION = "0.1.4";
+export const VERSION = "0.2.0";
 
 export { Meter } from "./meter.js";
 export type { MeterListener, MeterOptions } from "./meter.js";
@@ -21,9 +21,18 @@ export type {
   OpenAIStream,
   OpenAIStreamChunk,
 } from "./providers/openai.js";
-export { isGoogleClient, wrapGoogle } from "./providers/google.js";
+export {
+  isGoogleClient,
+  isGoogleLegacyClient,
+  wrapGoogle,
+  wrapGoogleLegacy,
+} from "./providers/google.js";
 export type {
   GoogleGenerateParams,
+  GoogleLegacyClient,
+  GoogleLegacyModel,
+  GoogleLegacyResult,
+  GoogleLegacyStreamResult,
   GoogleLike,
   GoogleResponse,
   GoogleStream,
@@ -71,11 +80,18 @@ export type {
 } from "./remote.js";
 export { percentile, summarize, summarizeBy } from "./aggregate.js";
 export type { GroupBy, Summary } from "./aggregate.js";
-export { MeterProvider, useBudget, useMeter, useMetrics } from "./hooks.js";
+// Hooks moved to react-native-llm-meter/react in v0.2.0. The re-exports
+// below are kept as a v0.1.x deprecation shim and will be removed in v0.3.
+export {
+  MeterProvider,
+  useBudget,
+  useMeter,
+  useMetrics,
+} from "./react/hooks.js";
 export type {
   MeterProviderProps,
   UseBudgetResult,
   UseMetricsOptions,
   UseMetricsResult,
-} from "./hooks.js";
+} from "./react/hooks.js";
 export type { MeterEvent, MeterEventInput, Provider } from "./types.js";

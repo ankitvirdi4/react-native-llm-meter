@@ -18,6 +18,9 @@ export interface MeterEvent {
   // cacheCreationInputTokens at 1.25x input rate.
   cacheReadInputTokens?: number;
   cacheCreationInputTokens?: number;
+  // Free form tags for grouping and filtering. Useful for userId, sessionId,
+  // featureName, releaseChannel, etc. Stored as JSON in SQLite.
+  tags?: Record<string, string>;
 }
 
 export type MeterEventInput = Omit<MeterEvent, "timestamp" | "requestId" | "costUsd"> & {

@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useMeter } from "../hooks.js";
+import { useMeter } from "../react/hooks.js";
 import type { MeterEvent } from "../types.js";
 import { buildOverlayState } from "./state.js";
 
