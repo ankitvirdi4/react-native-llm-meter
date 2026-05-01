@@ -1,7 +1,7 @@
-export const VERSION = "0.0.5";
+export const VERSION = "0.0.6";
 
 export { Meter } from "./meter.js";
-export type { MeterOptions } from "./meter.js";
+export type { MeterListener, MeterOptions } from "./meter.js";
 export { computeCost } from "./pricing/compute.js";
 export { PRICING } from "./pricing/table.js";
 export type { ModelPricing, PricingTable } from "./pricing/table.js";
@@ -38,4 +38,13 @@ export type {
   AsyncStorageLike,
 } from "./storage/async-storage.js";
 export type { QueryRange, Storage } from "./storage/types.js";
+export { percentile, summarize, summarizeBy } from "./aggregate.js";
+export type { GroupBy, Summary } from "./aggregate.js";
+export { MeterProvider, useBudget, useMeter, useMetrics } from "./hooks.js";
+export type {
+  MeterProviderProps,
+  UseBudgetResult,
+  UseMetricsOptions,
+  UseMetricsResult,
+} from "./hooks.js";
 export type { MeterEvent, MeterEventInput, Provider } from "./types.js";

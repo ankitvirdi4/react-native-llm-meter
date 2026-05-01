@@ -3,7 +3,7 @@ import { Meter, VERSION, computeCost } from "./index.js";
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.0.5");
+    expect(VERSION).toBe("0.0.6");
   });
 });
 
@@ -190,6 +190,60 @@ describe("Meter", () => {
     await meter.flush();
 
     expect(errors).toEqual([failure]);
+  });
+
+  it("subscribe fires after storage commits, can be unsubscribed", async () => {
+    const meter = new Meter();
+    const received: string[] = [];
+
+    const unsubscribe = meter.subscribe((e) => received.push(e.requestId));
+    meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+      requestId: "first",
+    });
+    await meter.flush();
+    expect(received).toEqual(["first"]);
+
+    unsubscribe();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+      requestId: "second",
+    });
+    await meter.flush();
+    expect(received).toEqual(["first"]);
+  });
+
+  it("subscribe supports multiple listeners and swallows listener errors", async () => {
+    const meter = new Meter();
+    const a: string[] = [];
+    const b: string[] = [];
+
+    meter.subscribe((e) => a.push(e.requestId));
+    meter.subscribe(() => {
+      throw new Error("listener boom");
+    });
+    meter.subscribe((e) => b.push(e.requestId));
+
+    meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+      requestId: "x",
+    });
+    await meter.flush();
+
+    expect(a).toEqual(["x"]);
+    expect(b).toEqual(["x"]);
   });
 
   it("swallows storage errors silently when no onError given", async () => {

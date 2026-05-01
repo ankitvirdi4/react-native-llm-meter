@@ -15,10 +15,13 @@ export interface MeterOptions {
   onError?: (err: unknown) => void;
 }
 
+export type MeterListener = (event: MeterEvent) => void;
+
 export class Meter {
   private readonly storage: Storage;
   private readonly onError: (err: unknown) => void;
   private pending: Set<Promise<unknown>> = new Set();
+  private listeners: Set<MeterListener> = new Set();
 
   constructor(opts: MeterOptions = {}) {
     this.storage = opts.storage ?? new MemoryStorage();
@@ -41,6 +44,15 @@ export class Meter {
 
     const promise = this.storage
       .append(event)
+      .then(() => {
+        for (const listener of this.listeners) {
+          try {
+            listener(event);
+          } catch {
+            // Listener errors must not break recording.
+          }
+        }
+      })
       .catch((err: unknown) => this.onError(err));
     this.pending.add(promise);
     promise.finally(() => this.pending.delete(promise));
@@ -57,6 +69,13 @@ export class Meter {
 
   async flush(): Promise<void> {
     await Promise.all(this.pending);
+  }
+
+  subscribe(listener: MeterListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   wrap<T>(client: T): T {
