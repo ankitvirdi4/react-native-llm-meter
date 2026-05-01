@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+afterEach(() => {
+  cleanup();
+});
 import { Meter } from "./meter.js";
 import { MeterProvider, useBudget, useMeter, useMetrics } from "./hooks.js";
 
