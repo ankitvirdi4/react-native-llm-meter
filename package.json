@@ -79,7 +79,7 @@
     }
   },
   "devDependencies": {
-    "@react-native-async-storage/async-storage": "^1.23.1",
+    "@react-native-async-storage/async-storage": "^3.0.2",
     "@testing-library/react": "^16.0.0",
     "@types/better-sqlite3": "^7.6.11",
     "@types/react": "^19.0.0",
