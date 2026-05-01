@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PRICING } from "./pricing/table.js";
 import { Meter, VERSION, computeCost } from "./index.js";
 
 afterEach(() => {
@@ -7,7 +8,27 @@ afterEach(() => {
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.1.2");
+    expect(VERSION).toBe("0.1.3");
+  });
+});
+
+describe("pricing breadth", () => {
+  it("covers at least 10 Anthropic models", () => {
+    expect(Object.keys(PRICING.anthropic).length).toBeGreaterThanOrEqual(10);
+  });
+  it("covers at least 10 OpenAI models", () => {
+    expect(Object.keys(PRICING.openai).length).toBeGreaterThanOrEqual(10);
+  });
+  it("covers at least 10 Google models", () => {
+    expect(Object.keys(PRICING.google).length).toBeGreaterThanOrEqual(10);
+  });
+  it("every entry has positive input and output prices", () => {
+    for (const provider of Object.keys(PRICING) as Array<keyof typeof PRICING>) {
+      for (const [model, price] of Object.entries(PRICING[provider])) {
+        expect(price.input, `${provider}:${model}.input`).toBeGreaterThan(0);
+        expect(price.output, `${provider}:${model}.output`).toBeGreaterThan(0);
+      }
+    }
   });
 });
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3 (2026-05-01)
+
+### Added
+
+- Pricing table expanded from 9 models to 50+ across the three providers. Anthropic Claude 3, 3.5, 3.7, 4 family. OpenAI GPT-3.5, GPT-4, GPT-4 Turbo, GPT-4o, GPT-4.1, o1/o3/o4 reasoning. Google Gemini 1.5, 2.0, 2.5 family. Best effort verified as of 2026-05-01; PR template at `.github/PULL_REQUEST_TEMPLATE/pricing-update.md` for community corrections.
+- Test that asserts at least 10 entries per provider so regressions in breadth are caught.
+
+### Fixed
+
+- Example app at `examples/expo-dev-client/` now uses the version pins Expo SDK 53 actually expects: `@react-native-async-storage/async-storage@2.1.2`, `expo-dev-client@~5.2.4`, `expo-sqlite@~15.2.14`, `expo-status-bar@~2.2.3`, `react-native@0.79.6`, `typescript@~5.8.3`. Previously the pins were guesses and would have produced dependency conflicts on a fresh install. Verified via `npm install` and `npx expo-doctor`.
+
 ## 0.1.2 (2026-05-01)
 
 ### Added

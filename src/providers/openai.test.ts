@@ -70,10 +70,9 @@ describe("wrapOpenAI", () => {
         outputTokens: 500,
       }),
     );
-    // gpt-4o-2024-08-06 is not in pricing table, expect 0
-    // Use the params model for pricing lookup? No, we use response.model.
-    // So cost = 0 here since the dated variant is not in our table.
-    expect(events[0].costUsd).toBe(0);
+    // gpt-4o-2024-08-06 is now in the pricing table at $2.50/$10 per 1M.
+    // 1000 * 2.50 + 500 * 10 = 7500 / 1M = 0.0075
+    expect(events[0].costUsd).toBeCloseTo(0.0075, 6);
   });
 
   it("falls back to params.model when response.model is missing", async () => {
