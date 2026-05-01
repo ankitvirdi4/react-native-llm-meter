@@ -61,7 +61,8 @@ describe("wrapAnthropic", () => {
       expect.objectContaining({ model: "claude-sonnet-4-6" }),
     );
 
-    const events = meter.getEvents();
+    await meter.flush();
+    const events = await meter.getEvents();
     expect(events).toHaveLength(1);
     expect(events[0]).toEqual(
       expect.objectContaining({
@@ -88,7 +89,8 @@ describe("wrapAnthropic", () => {
       wrapped.messages.create({ model: "claude-haiku-4-5" }),
     ).rejects.toBe(apiError);
 
-    const events = meter.getEvents();
+    await meter.flush();
+    const events = await meter.getEvents();
     expect(events).toHaveLength(1);
     expect(events[0]).toEqual(
       expect.objectContaining({
@@ -110,7 +112,8 @@ describe("wrapAnthropic", () => {
 
     await wrapped.messages.create({ model: "claude-opus-4-7" });
 
-    expect(meter.getEvents()[0].model).toBe("claude-opus-4-7");
+    await meter.flush();
+    expect((await meter.getEvents())[0].model).toBe("claude-opus-4-7");
   });
 
   it("falls back to 'unknown' when error path has no model in params", async () => {
@@ -123,7 +126,8 @@ describe("wrapAnthropic", () => {
       wrapped.messages.create({} as { model: string }),
     ).rejects.toThrow("boom");
 
-    expect(meter.getEvents()[0].model).toBe("unknown");
+    await meter.flush();
+    expect((await meter.getEvents())[0].model).toBe("unknown");
   });
 
   it("treats missing usage as zero tokens", async () => {
@@ -135,7 +139,8 @@ describe("wrapAnthropic", () => {
 
     await wrapped.messages.create({ model: "claude-sonnet-4-6" });
 
-    const event = meter.getEvents()[0];
+    await meter.flush();
+    const event = (await meter.getEvents())[0];
     expect(event.inputTokens).toBe(0);
     expect(event.outputTokens).toBe(0);
     expect(event.costUsd).toBe(0);
@@ -151,7 +156,8 @@ describe("wrapAnthropic", () => {
       stream: true,
     });
 
-    expect(meter.getEvents()).toHaveLength(0);
+    await meter.flush();
+    expect(await meter.getEvents()).toHaveLength(0);
     expect(fake.create).toHaveBeenCalledTimes(1);
   });
 
@@ -175,7 +181,8 @@ describe("wrapAnthropic", () => {
     };
     const result = await messages.countTokens();
     expect(result).toEqual({ input_tokens: 42 });
-    expect(meter.getEvents()).toHaveLength(0);
+    await meter.flush();
+    expect(await meter.getEvents()).toHaveLength(0);
   });
 });
 
@@ -186,7 +193,8 @@ describe("Meter.wrap", () => {
     const wrapped = meter.wrap(fake as unknown as AnthropicLike);
 
     await wrapped.messages.create({ model: "claude-sonnet-4-6" });
-    expect(meter.getEvents()).toHaveLength(1);
+    await meter.flush();
+    expect(await meter.getEvents()).toHaveLength(1);
   });
 
   it("throws for unknown clients with a clear message", () => {
