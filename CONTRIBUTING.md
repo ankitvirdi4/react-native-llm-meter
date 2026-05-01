@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for your interest in `react-native-llm-meter`! This project is in early
-pre-release — feedback, ideas, and PRs are all very welcome.
+pre release. Feedback, ideas, and PRs are all very welcome.
 
 ## Setup
 
@@ -23,7 +23,7 @@ npm test            # vitest
 ## Submitting a PR
 
 1. Fork the repo and create a branch off `main`.
-2. Make your change. Keep PRs focused — one concern per PR.
+2. Make your change. Keep PRs focused. One concern per PR.
 3. Add or update tests where it makes sense.
 4. Make sure `npm run typecheck`, `npm test`, and `npm run build` all pass.
 5. Open a PR with a clear summary of the *why*.
@@ -34,7 +34,7 @@ so we can chat about the approach.
 ## Good first issues
 
 Check the [good first issue](https://github.com/ankitvirdi4/react-native-llm-meter/labels/good%20first%20issue)
-label for beginner-friendly tasks. If nothing's there yet, open an issue
+label for beginner friendly tasks. If nothing's there yet, open an issue
 describing what you'd like to work on and we'll scope something together.
 
 ## Code of conduct

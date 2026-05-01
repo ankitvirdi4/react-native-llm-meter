@@ -11,10 +11,10 @@ Thanks for the idea! ✨
 A clear, short description of the feature.
 
 **What problem does it solve?**
-Why this matters — the user need or pain point behind the request.
+Why this matters. The user need or pain point behind the request.
 
 **Alternatives you've considered**
 Any workarounds or related approaches.
 
 **Additional context**
-Links, sketches, references — anything that helps.
+Links, sketches, references. Anything that helps.
