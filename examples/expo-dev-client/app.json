@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "llm-meter-example",
+    "slug": "llm-meter-example",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.llmmeter.example"
+    },
+    "android": {
+      "package": "dev.llmmeter.example"
+    },
+    "plugins": ["expo-sqlite"]
+  }
+}
