@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "LLM observability for React Native and Expo. Token usage, cost, and latency metrics — on-device, multi-provider.",
   "license": "MIT",
-  "author": "Ankit Virdi <ankit@example.com> (https://github.com/ankitvirdi4)",
+  "author": "Ankit Virdi <ankitvirdi4@gmail.com> (https://github.com/ankitvirdi4)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ankitvirdi4/react-native-llm-meter.git"
