@@ -128,6 +128,9 @@ export function MeterOverlay(props: MeterOverlayProps = {}) {
                 tokens: {selectedEvent.inputTokens} in / {selectedEvent.outputTokens} out
               </Text>
               <Text style={styles.row}>latency: {selectedEvent.latencyMs}ms</Text>
+              {selectedEvent.ttftMs !== undefined ? (
+                <Text style={styles.row}>ttft: {selectedEvent.ttftMs}ms</Text>
+              ) : null}
               <Text style={styles.row}>
                 at: {new Date(selectedEvent.timestamp).toISOString()}
               </Text>

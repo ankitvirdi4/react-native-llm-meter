@@ -271,6 +271,64 @@ describe("wrapAnthropic streaming", () => {
     expect(events[0].outputTokens).toBe(0);
   });
 
+  it("captures ttftMs on the first content_block_delta chunk", async () => {
+    const meter = new Meter();
+    async function* fakeStreamWithContent() {
+      yield {
+        type: "message_start",
+        message: {
+          model: "claude-sonnet-4-6",
+          usage: { input_tokens: 10, output_tokens: 0 },
+        },
+      };
+      yield { type: "content_block_start" };
+      yield { type: "content_block_delta", delta: { text: "hi" } };
+      yield { type: "content_block_delta", delta: { text: " there" } };
+      yield { type: "message_delta", usage: { output_tokens: 5 } };
+      yield { type: "message_stop" };
+    }
+    const fake = {
+      messages: { create: vi.fn(async () => fakeStreamWithContent()) },
+    };
+    const wrapped = wrapAnthropic(fake as unknown as AnthropicLike, meter);
+
+    const stream = await wrapped.messages.create({
+      model: "claude-sonnet-4-6",
+      stream: true,
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // drain
+    }
+
+    await meter.flush();
+    const event = (await meter.getEvents())[0];
+    expect(event.ttftMs).toBeGreaterThanOrEqual(0);
+    expect(event.ttftMs).toBeLessThanOrEqual(event.latencyMs);
+  });
+
+  it("leaves ttftMs undefined when no content chunks arrive", async () => {
+    const meter = new Meter();
+    async function* metadataOnly() {
+      yield { type: "message_start", message: { model: "claude-haiku-4-5" } };
+      yield { type: "message_stop" };
+    }
+    const fake = {
+      messages: { create: vi.fn(async () => metadataOnly()) },
+    };
+    const wrapped = wrapAnthropic(fake as unknown as AnthropicLike, meter);
+
+    const stream = await wrapped.messages.create({
+      model: "claude-haiku-4-5",
+      stream: true,
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // drain
+    }
+
+    await meter.flush();
+    expect((await meter.getEvents())[0].ttftMs).toBeUndefined();
+  });
+
   it("ignores chunks without usage data", async () => {
     const meter = new Meter();
     async function* dataless() {

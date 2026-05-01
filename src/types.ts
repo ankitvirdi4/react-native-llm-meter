@@ -9,6 +9,10 @@ export interface MeterEvent {
   costUsd: number;
   timestamp: number;
   requestId: string;
+  // Time to first content token, milliseconds. Set on streaming events only.
+  // Undefined for non streaming responses where the request returns the full
+  // body in a single round trip.
+  ttftMs?: number;
 }
 
 export type MeterEventInput = Omit<MeterEvent, "timestamp" | "requestId" | "costUsd"> & {

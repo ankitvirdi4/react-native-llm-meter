@@ -76,6 +76,7 @@ export class Meter {
         computeCost(input.provider, input.model, input.inputTokens, input.outputTokens),
       timestamp: input.timestamp ?? Date.now(),
       requestId: input.requestId ?? generateId(),
+      ...(input.ttftMs !== undefined ? { ttftMs: input.ttftMs } : {}),
     };
 
     const promise = this.storage

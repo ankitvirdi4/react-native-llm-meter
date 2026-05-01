@@ -100,6 +100,57 @@ describe("MeterOverlay", () => {
     expect(body.textContent).toMatch(/no events yet/);
   });
 
+  it("shows ttft in the details panel when the event has ttftMs", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 100,
+      outputTokens: 50,
+      latencyMs: 500,
+      ttftMs: 80,
+      requestId: "stream-1",
+    });
+    await meter.flush();
+
+    render(<MeterOverlay />, { wrapper: wrap(meter) });
+    const header = await screen.findByTestId("meter-overlay-header");
+    await act(async () => {
+      header.click();
+    });
+    const row = await screen.findByTestId("meter-overlay-row-stream-1");
+    await act(async () => {
+      row.click();
+    });
+    const details = await screen.findByTestId("meter-overlay-details");
+    expect(details.textContent).toMatch(/ttft: 80ms/);
+  });
+
+  it("hides the ttft line when the event has no ttftMs", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 100,
+      outputTokens: 50,
+      latencyMs: 500,
+      requestId: "nostream-1",
+    });
+    await meter.flush();
+
+    render(<MeterOverlay />, { wrapper: wrap(meter) });
+    const header = await screen.findByTestId("meter-overlay-header");
+    await act(async () => {
+      header.click();
+    });
+    const row = await screen.findByTestId("meter-overlay-row-nostream-1");
+    await act(async () => {
+      row.click();
+    });
+    const details = await screen.findByTestId("meter-overlay-details");
+    expect(details.textContent).not.toMatch(/ttft:/);
+  });
+
   it("refreshes when the meter records a new event", async () => {
     const meter = new Meter();
     render(<MeterOverlay />, { wrapper: wrap(meter) });

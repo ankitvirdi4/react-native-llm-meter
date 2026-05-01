@@ -24,12 +24,17 @@ interface EventRow {
   latency_ms: number;
   cost_usd: number;
   timestamp: number;
+  ttft_ms: number | null;
+}
+
+interface ColumnInfo {
+  name: string;
 }
 
 const DEFAULT_TABLE = "llm_meter_events";
 
 function rowToEvent(row: EventRow): MeterEvent {
-  return {
+  const event: MeterEvent = {
     requestId: row.request_id,
     provider: row.provider as Provider,
     model: row.model,
@@ -39,6 +44,10 @@ function rowToEvent(row: EventRow): MeterEvent {
     costUsd: row.cost_usd,
     timestamp: row.timestamp,
   };
+  if (row.ttft_ms !== null && row.ttft_ms !== undefined) {
+    event.ttftMs = row.ttft_ms;
+  }
+  return event;
 }
 
 export class SqliteAdapter implements Storage {
@@ -68,9 +77,19 @@ export class SqliteAdapter implements Storage {
          output_tokens INTEGER NOT NULL,
          latency_ms INTEGER NOT NULL,
          cost_usd REAL NOT NULL,
-         timestamp INTEGER NOT NULL
+         timestamp INTEGER NOT NULL,
+         ttft_ms INTEGER NULL
        )`,
     );
+    // Migrate older v0.1.x databases that predate the ttft_ms column.
+    const cols = await this.db.getAllAsync<ColumnInfo>(
+      `PRAGMA table_info(${this.table})`,
+    );
+    if (!cols.some((c) => c.name === "ttft_ms")) {
+      await this.db.execAsync(
+        `ALTER TABLE ${this.table} ADD COLUMN ttft_ms INTEGER NULL`,
+      );
+    }
     await this.db.execAsync(
       `CREATE INDEX IF NOT EXISTS idx_${this.table}_timestamp ON ${this.table}(timestamp)`,
     );
@@ -86,8 +105,8 @@ export class SqliteAdapter implements Storage {
     await this.init();
     await this.db.runAsync(
       `INSERT OR REPLACE INTO ${this.table}
-         (request_id, provider, model, input_tokens, output_tokens, latency_ms, cost_usd, timestamp)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (request_id, provider, model, input_tokens, output_tokens, latency_ms, cost_usd, timestamp, ttft_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         event.requestId,
         event.provider,
@@ -97,6 +116,7 @@ export class SqliteAdapter implements Storage {
         event.latencyMs,
         event.costUsd,
         event.timestamp,
+        event.ttftMs ?? null,
       ],
     );
   }

@@ -90,6 +90,35 @@ const gemini = meter.wrap(new GoogleGenAI({ apiKey }));
 The wrapped client has the same interface as the original. You only change the
 construction.
 
+### Streaming TTFT
+
+Streaming events also record `ttftMs`, the time from the request start to the
+first content chunk that arrives back. It captures perceived responsiveness
+separately from total stream duration.
+
+```ts
+const events = await meter.getEvents();
+const streaming = events.filter((e) => e.ttftMs !== undefined);
+console.log("p50 TTFT", summarize(streaming).ttftP50);
+console.log("p50 total latency", summarize(events).latencyP50);
+```
+
+What counts as the "first content chunk" per provider:
+
+| Provider  | Detection                                                        |
+|-----------|------------------------------------------------------------------|
+| Anthropic | First `content_block_delta` chunk (skips `message_start`)        |
+| OpenAI    | First chunk where `choices[0].delta.content` is a non empty string |
+| Google    | First chunk where `candidates[0].content.parts[0].text` is non empty |
+
+`latencyMs` stays as total wall clock (request start to end of stream), so the
+two fields are complementary, not interchangeable. Non streaming events have
+`ttftMs` undefined since round trip latency equals first byte latency.
+
+`Summary` from `summarize` exposes `ttftP50`, `ttftP95`, `ttftMean`, and
+`ttftCount`. The first three are computed only from events with `ttftMs` set;
+when no streaming events are in the slice, all three return 0.
+
 ## Storage adapters
 
 By default events live in memory and are lost on reload. Pass a `Storage`

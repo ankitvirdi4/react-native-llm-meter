@@ -11,6 +11,10 @@ export interface Summary {
   latencyP50: number;
   latencyP95: number;
   latencyMean: number;
+  ttftP50: number;
+  ttftP95: number;
+  ttftMean: number;
+  ttftCount: number;
 }
 
 export function percentile(values: number[], p: number): number {
@@ -20,26 +24,33 @@ export function percentile(values: number[], p: number): number {
   return sorted[idx];
 }
 
+const EMPTY_SUMMARY: Summary = {
+  count: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
+  costUsd: 0,
+  latencyP50: 0,
+  latencyP95: 0,
+  latencyMean: 0,
+  ttftP50: 0,
+  ttftP95: 0,
+  ttftMean: 0,
+  ttftCount: 0,
+};
+
 export function summarize(events: MeterEvent[]): Summary {
   const count = events.length;
-  if (count === 0) {
-    return {
-      count: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      costUsd: 0,
-      latencyP50: 0,
-      latencyP95: 0,
-      latencyMean: 0,
-    };
-  }
+  if (count === 0) return { ...EMPTY_SUMMARY };
 
   let inputTokens = 0;
   let outputTokens = 0;
   let costUsd = 0;
   let latencySum = 0;
   const latencies: number[] = new Array(count);
+
+  let ttftSum = 0;
+  const ttftValues: number[] = [];
 
   for (let i = 0; i < count; i++) {
     const e = events[i];
@@ -48,6 +59,10 @@ export function summarize(events: MeterEvent[]): Summary {
     costUsd += e.costUsd;
     latencySum += e.latencyMs;
     latencies[i] = e.latencyMs;
+    if (e.ttftMs !== undefined) {
+      ttftSum += e.ttftMs;
+      ttftValues.push(e.ttftMs);
+    }
   }
 
   return {
@@ -59,6 +74,10 @@ export function summarize(events: MeterEvent[]): Summary {
     latencyP50: percentile(latencies, 50),
     latencyP95: percentile(latencies, 95),
     latencyMean: latencySum / count,
+    ttftP50: percentile(ttftValues, 50),
+    ttftP95: percentile(ttftValues, 95),
+    ttftMean: ttftValues.length > 0 ? ttftSum / ttftValues.length : 0,
+    ttftCount: ttftValues.length,
   };
 }
 

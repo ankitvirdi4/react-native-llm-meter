@@ -179,6 +179,60 @@ describe("wrapOpenAI streaming", () => {
     expect(event.outputTokens).toBe(50);
   });
 
+  it("captures ttftMs on the first delta with non empty content", async () => {
+    const meter = new Meter();
+    async function* withRoleFirst() {
+      yield { choices: [{ delta: { role: "assistant" } }] }; // metadata only
+      yield { choices: [{ delta: { content: "" } }] }; // empty content, no TTFT yet
+      yield {
+        model: "gpt-4o-2024-08-06",
+        choices: [{ delta: { content: "hi" } }], // first real content
+      };
+      yield { choices: [{ delta: { content: " there" } }] };
+      yield { usage: { prompt_tokens: 100, completion_tokens: 30 } };
+    }
+    const fake = {
+      chat: { completions: { create: vi.fn(async () => withRoleFirst()) } },
+    };
+    const wrapped = wrapOpenAI(fake as unknown as OpenAILike, meter);
+
+    const stream = await wrapped.chat.completions.create({
+      model: "gpt-4o",
+      stream: true,
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // drain
+    }
+
+    await meter.flush();
+    const event = (await meter.getEvents())[0];
+    expect(event.ttftMs).toBeGreaterThanOrEqual(0);
+    expect(event.ttftMs).toBeLessThanOrEqual(event.latencyMs);
+  });
+
+  it("leaves ttftMs undefined when stream has no content chunks", async () => {
+    const meter = new Meter();
+    async function* metadataOnly() {
+      yield { choices: [{ delta: { role: "assistant" } }] };
+      yield { usage: { prompt_tokens: 5, completion_tokens: 0 } };
+    }
+    const fake = {
+      chat: { completions: { create: vi.fn(async () => metadataOnly()) } },
+    };
+    const wrapped = wrapOpenAI(fake as unknown as OpenAILike, meter);
+
+    const stream = await wrapped.chat.completions.create({
+      model: "gpt-4o",
+      stream: true,
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // drain
+    }
+
+    await meter.flush();
+    expect((await meter.getEvents())[0].ttftMs).toBeUndefined();
+  });
+
   it("records zeros when stream throws", async () => {
     const meter = new Meter();
     async function* throwing() {

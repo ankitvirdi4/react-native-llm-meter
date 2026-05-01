@@ -142,6 +142,54 @@ describe("SqliteAdapter", () => {
     expect(events[0].inputTokens).toBe(999);
   });
 
+  it("roundtrips events with and without ttftMs", async () => {
+    const adapter = new SqliteAdapter({ db: makeBetterSqliteDb() });
+    await adapter.append(makeEvent({ requestId: "stream", ttftMs: 80 }));
+    await adapter.append(makeEvent({ requestId: "non-stream" }));
+
+    const events = await adapter.query();
+    const stream = events.find((e) => e.requestId === "stream");
+    const nonStream = events.find((e) => e.requestId === "non-stream");
+
+    expect(stream?.ttftMs).toBe(80);
+    expect(nonStream?.ttftMs).toBeUndefined();
+  });
+
+  it("migrates an older schema by adding the ttft_ms column", async () => {
+    // Simulate a v0.1.x database that predates ttft_ms.
+    const db = makeBetterSqliteDb();
+    await db.execAsync(
+      `CREATE TABLE llm_meter_events (
+         request_id TEXT PRIMARY KEY,
+         provider TEXT NOT NULL,
+         model TEXT NOT NULL,
+         input_tokens INTEGER NOT NULL,
+         output_tokens INTEGER NOT NULL,
+         latency_ms INTEGER NOT NULL,
+         cost_usd REAL NOT NULL,
+         timestamp INTEGER NOT NULL
+       )`,
+    );
+    await db.runAsync(
+      `INSERT INTO llm_meter_events VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ["legacy-1", "anthropic", "claude-haiku-4-5", 10, 5, 100, 0, 1000],
+    );
+
+    const adapter = new SqliteAdapter({ db });
+    // Trigger init via a query.
+    const events = await adapter.query();
+
+    // Existing row preserved with ttftMs undefined.
+    expect(events).toHaveLength(1);
+    expect(events[0].requestId).toBe("legacy-1");
+    expect(events[0].ttftMs).toBeUndefined();
+
+    // New writes set ttft_ms successfully.
+    await adapter.append(makeEvent({ requestId: "fresh", ttftMs: 42 }));
+    const after = await adapter.query();
+    expect(after.find((e) => e.requestId === "fresh")?.ttftMs).toBe(42);
+  });
+
   it("supports a custom tableName", async () => {
     const db = makeBetterSqliteDb();
     const adapter = new SqliteAdapter({ db, tableName: "custom_table" });

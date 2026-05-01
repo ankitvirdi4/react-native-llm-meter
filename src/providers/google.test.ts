@@ -179,6 +179,58 @@ describe("wrapGoogle streaming", () => {
     expect(event.outputTokens).toBe(100);
   });
 
+  it("captures ttftMs on the first chunk with non empty text", async () => {
+    const meter = new Meter();
+    async function* withMetadataFirst() {
+      yield { modelVersion: "gemini-2.0-flash" }; // no content
+      yield {
+        candidates: [{ content: { parts: [{ text: "" }] } }],
+      }; // empty text, no TTFT yet
+      yield {
+        candidates: [{ content: { parts: [{ text: "hi" }] } }],
+      }; // first real text
+      yield {
+        usageMetadata: { promptTokenCount: 50, candidatesTokenCount: 10 },
+      };
+    }
+    const fake = makeFakeClient({ streamFn: withMetadataFirst });
+    const wrapped = wrapGoogle(fake as unknown as GoogleLike, meter);
+
+    const stream = await wrapped.models.generateContentStream!({
+      model: "gemini-2.0-flash",
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // drain
+    }
+
+    await meter.flush();
+    const event = (await meter.getEvents())[0];
+    expect(event.ttftMs).toBeGreaterThanOrEqual(0);
+    expect(event.ttftMs).toBeLessThanOrEqual(event.latencyMs);
+  });
+
+  it("leaves ttftMs undefined when stream has no text chunks", async () => {
+    const meter = new Meter();
+    async function* usageOnly() {
+      yield { modelVersion: "gemini-2.0-flash" };
+      yield {
+        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 0 },
+      };
+    }
+    const fake = makeFakeClient({ streamFn: usageOnly });
+    const wrapped = wrapGoogle(fake as unknown as GoogleLike, meter);
+
+    const stream = await wrapped.models.generateContentStream!({
+      model: "gemini-2.0-flash",
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // drain
+    }
+
+    await meter.flush();
+    expect((await meter.getEvents())[0].ttftMs).toBeUndefined();
+  });
+
   it("records zeros when stream throws", async () => {
     const meter = new Meter();
     async function* throwing() {

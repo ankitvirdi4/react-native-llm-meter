@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.2 (2026-05-01)
+
+### Added
+
+- `ttftMs` on `MeterEvent`. Time to first content token, set on streaming events only. Anthropic captures it on the first `content_block_delta` chunk. OpenAI on the first chunk where `choices[0].delta.content` is non empty. Google on the first chunk where `candidates[0].content.parts[0].text` is non empty.
+- `Summary` gains `ttftP50`, `ttftP95`, `ttftMean`, `ttftCount`. Computed only from events that have `ttftMs` defined. All zero when the slice has no streaming events.
+- `MeterOverlay` shows `ttft: Xms` in the row details panel when present.
+- README documents streaming TTFT under Providers.
+
+### Migrations
+
+- `SqliteAdapter` adds a `ttft_ms` column on init. v0.1.x databases without the column are upgraded transparently via `ALTER TABLE ADD COLUMN`. Existing rows keep `ttftMs` undefined.
+
+### Notes
+
+- `latencyMs` continues to mean total wall clock (request start to end of stream for streaming, request start to response for non streaming). TTFT is additive, not a replacement.
+
 ## 0.1.1 (2026-05-01)
 
 ### Added

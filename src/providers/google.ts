@@ -33,6 +33,10 @@ export interface GoogleStreamChunk {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
   };
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+    [key: string]: unknown;
+  }>;
   [key: string]: unknown;
 }
 
@@ -86,6 +90,7 @@ export function wrapGoogle<T extends GoogleLike>(client: T, meter: Meter): T {
     let model = params.model;
     let inputTokens = 0;
     let outputTokens = 0;
+    let ttftMs: number | undefined;
 
     return wrapAsyncIterable<GoogleStreamChunk>(stream, {
       onChunk: (chunk) => {
@@ -98,6 +103,12 @@ export function wrapGoogle<T extends GoogleLike>(client: T, meter: Meter): T {
             outputTokens = chunk.usageMetadata.candidatesTokenCount;
           }
         }
+        if (ttftMs === undefined) {
+          const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (typeof text === "string" && text.length > 0) {
+            ttftMs = Date.now() - start;
+          }
+        }
       },
       onComplete: () => {
         meter.record({
@@ -106,6 +117,7 @@ export function wrapGoogle<T extends GoogleLike>(client: T, meter: Meter): T {
           inputTokens,
           outputTokens,
           latencyMs: Date.now() - start,
+          ttftMs,
         });
       },
       onError: () => {
@@ -115,6 +127,7 @@ export function wrapGoogle<T extends GoogleLike>(client: T, meter: Meter): T {
           inputTokens: 0,
           outputTokens: 0,
           latencyMs: Date.now() - start,
+          ttftMs,
         });
       },
     });

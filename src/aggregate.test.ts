@@ -50,6 +50,10 @@ describe("summarize", () => {
       latencyP50: 0,
       latencyP95: 0,
       latencyMean: 0,
+      ttftP50: 0,
+      ttftP95: 0,
+      ttftMean: 0,
+      ttftCount: 0,
     });
   });
 
@@ -69,6 +73,36 @@ describe("summarize", () => {
     expect(s.latencyMean).toBeCloseTo(200, 6);
     expect(s.latencyP50).toBe(200);
     expect(s.latencyP95).toBe(300);
+  });
+});
+
+describe("summarize ttft", () => {
+  it("returns zeros for ttft fields when no events have ttftMs", () => {
+    const events = [
+      makeEvent({ requestId: "a" }),
+      makeEvent({ requestId: "b" }),
+    ];
+    const s = summarize(events);
+    expect(s.ttftP50).toBe(0);
+    expect(s.ttftP95).toBe(0);
+    expect(s.ttftMean).toBe(0);
+    expect(s.ttftCount).toBe(0);
+  });
+
+  it("computes ttft stats from events that have ttftMs set", () => {
+    const events = [
+      makeEvent({ requestId: "a", ttftMs: 100 }),
+      makeEvent({ requestId: "b", ttftMs: 200 }),
+      makeEvent({ requestId: "c", ttftMs: 300 }),
+      makeEvent({ requestId: "d" }), // non streaming, no ttft
+    ];
+    const s = summarize(events);
+    expect(s.ttftCount).toBe(3);
+    expect(s.ttftMean).toBeCloseTo(200, 6);
+    expect(s.ttftP50).toBe(200);
+    expect(s.ttftP95).toBe(300);
+    // Latency stats include all four events
+    expect(s.count).toBe(4);
   });
 });
 

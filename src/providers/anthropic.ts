@@ -58,6 +58,7 @@ export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter):
       let model = params.model;
       let inputTokens = 0;
       let outputTokens = 0;
+      let ttftMs: number | undefined;
 
       return wrapAsyncIterable<AnthropicStreamChunk>(stream, {
         onChunk: (chunk) => {
@@ -66,6 +67,9 @@ export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter):
             if (chunk.message.usage?.input_tokens !== undefined) {
               inputTokens = chunk.message.usage.input_tokens;
             }
+          }
+          if (chunk.type === "content_block_delta" && ttftMs === undefined) {
+            ttftMs = Date.now() - start;
           }
           if (chunk.type === "message_delta" && chunk.usage?.output_tokens !== undefined) {
             outputTokens = chunk.usage.output_tokens;
@@ -78,6 +82,7 @@ export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter):
             inputTokens,
             outputTokens,
             latencyMs: Date.now() - start,
+            ttftMs,
           });
         },
         onError: () => {
@@ -87,6 +92,7 @@ export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter):
             inputTokens: 0,
             outputTokens: 0,
             latencyMs: Date.now() - start,
+            ttftMs,
           });
         },
       });

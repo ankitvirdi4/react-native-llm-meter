@@ -36,6 +36,10 @@ export interface OpenAIStreamChunk {
     prompt_tokens?: number;
     completion_tokens?: number;
   };
+  choices?: Array<{
+    delta?: { content?: string; role?: string };
+    [key: string]: unknown;
+  }>;
   [key: string]: unknown;
 }
 
@@ -64,6 +68,7 @@ export function wrapOpenAI<T extends OpenAILike>(client: T, meter: Meter): T {
       let model = params.model;
       let inputTokens = 0;
       let outputTokens = 0;
+      let ttftMs: number | undefined;
 
       return wrapAsyncIterable<OpenAIStreamChunk>(stream, {
         onChunk: (chunk) => {
@@ -76,6 +81,12 @@ export function wrapOpenAI<T extends OpenAILike>(client: T, meter: Meter): T {
               outputTokens = chunk.usage.completion_tokens;
             }
           }
+          if (ttftMs === undefined) {
+            const content = chunk.choices?.[0]?.delta?.content;
+            if (typeof content === "string" && content.length > 0) {
+              ttftMs = Date.now() - start;
+            }
+          }
         },
         onComplete: () => {
           meter.record({
@@ -84,6 +95,7 @@ export function wrapOpenAI<T extends OpenAILike>(client: T, meter: Meter): T {
             inputTokens,
             outputTokens,
             latencyMs: Date.now() - start,
+            ttftMs,
           });
         },
         onError: () => {
@@ -93,6 +105,7 @@ export function wrapOpenAI<T extends OpenAILike>(client: T, meter: Meter): T {
             inputTokens: 0,
             outputTokens: 0,
             latencyMs: Date.now() - start,
+            ttftMs,
           });
         },
       });
