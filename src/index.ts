@@ -1,4 +1,4 @@
-export const VERSION = "0.0.4";
+export const VERSION = "0.0.5";
 
 export { Meter } from "./meter.js";
 export type { MeterOptions } from "./meter.js";
@@ -10,7 +10,25 @@ export type {
   AnthropicCreateParams,
   AnthropicLike,
   AnthropicResponse,
+  AnthropicStream,
+  AnthropicStreamChunk,
 } from "./providers/anthropic.js";
+export { isOpenAIClient, wrapOpenAI } from "./providers/openai.js";
+export type {
+  OpenAICreateParams,
+  OpenAILike,
+  OpenAIResponse,
+  OpenAIStream,
+  OpenAIStreamChunk,
+} from "./providers/openai.js";
+export { isGoogleClient, wrapGoogle } from "./providers/google.js";
+export type {
+  GoogleGenerateParams,
+  GoogleLike,
+  GoogleResponse,
+  GoogleStream,
+  GoogleStreamChunk,
+} from "./providers/google.js";
 export { MemoryStorage } from "./storage/memory.js";
 export {
   AsyncStorageAdapter,

@@ -186,6 +186,113 @@ describe("wrapAnthropic", () => {
   });
 });
 
+describe("wrapAnthropic streaming", () => {
+  async function* fakeStream() {
+    yield {
+      type: "message_start",
+      message: {
+        model: "claude-sonnet-4-6",
+        usage: { input_tokens: 100, output_tokens: 0 },
+      },
+    };
+    yield { type: "content_block_delta", delta: { text: "hi" } };
+    yield { type: "message_delta", usage: { output_tokens: 25 } };
+    yield { type: "message_stop" };
+  }
+
+  it("records an event after the stream completes", async () => {
+    const meter = new Meter();
+    const fake = {
+      messages: {
+        create: vi.fn(async () => fakeStream()),
+      },
+    };
+    const wrapped = wrapAnthropic(fake as unknown as AnthropicLike, meter);
+
+    const stream = await wrapped.messages.create({
+      model: "claude-sonnet-4-6",
+      stream: true,
+    });
+
+    const chunks: unknown[] = [];
+    for await (const chunk of stream as AsyncIterable<unknown>) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toHaveLength(4);
+    await meter.flush();
+    const events = await meter.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+        inputTokens: 100,
+        outputTokens: 25,
+      }),
+    );
+  });
+
+  it("records zero token event when the stream throws midway", async () => {
+    const meter = new Meter();
+    async function* throwingStream() {
+      yield { type: "message_start", message: { model: "claude-sonnet-4-6" } };
+      throw new Error("network died");
+    }
+    const fake = {
+      messages: {
+        create: vi.fn(async () => throwingStream()),
+      },
+    };
+    const wrapped = wrapAnthropic(fake as unknown as AnthropicLike, meter);
+
+    const stream = await wrapped.messages.create({
+      model: "claude-sonnet-4-6",
+      stream: true,
+    });
+
+    await expect(async () => {
+      for await (const _ of stream as AsyncIterable<unknown>) {
+        // consume
+      }
+    }).rejects.toThrow("network died");
+
+    await meter.flush();
+    const events = await meter.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].inputTokens).toBe(0);
+    expect(events[0].outputTokens).toBe(0);
+  });
+
+  it("ignores chunks without usage data", async () => {
+    const meter = new Meter();
+    async function* dataless() {
+      yield { type: "ping" };
+      yield { type: "message_stop" };
+    }
+    const fake = {
+      messages: {
+        create: vi.fn(async () => dataless()),
+      },
+    };
+    const wrapped = wrapAnthropic(fake as unknown as AnthropicLike, meter);
+
+    const stream = await wrapped.messages.create({
+      model: "claude-haiku-4-5",
+      stream: true,
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // consume
+    }
+
+    await meter.flush();
+    const event = (await meter.getEvents())[0];
+    expect(event.model).toBe("claude-haiku-4-5");
+    expect(event.inputTokens).toBe(0);
+    expect(event.outputTokens).toBe(0);
+  });
+});
+
 describe("Meter.wrap", () => {
   it("dispatches to wrapAnthropic for Anthropic-shaped clients", async () => {
     const meter = new Meter();

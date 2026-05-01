@@ -1,8 +1,12 @@
 import type { Meter } from "../meter.js";
+import { wrapPath } from "./_proxy.js";
+import { wrapAsyncIterable } from "./_stream.js";
 
 export interface AnthropicLike {
   messages: {
-    create: (params: AnthropicCreateParams) => Promise<AnthropicResponse>;
+    create: (
+      params: AnthropicCreateParams,
+    ) => Promise<AnthropicResponse | AnthropicStream>;
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -23,6 +27,18 @@ export interface AnthropicResponse {
   [key: string]: unknown;
 }
 
+export interface AnthropicStreamChunk {
+  type?: string;
+  message?: {
+    model?: string;
+    usage?: { input_tokens?: number; output_tokens?: number };
+  };
+  usage?: { input_tokens?: number; output_tokens?: number };
+  [key: string]: unknown;
+}
+
+export type AnthropicStream = AsyncIterable<AnthropicStreamChunk> & object;
+
 export function isAnthropicClient(client: unknown): client is AnthropicLike {
   if (!client || typeof client !== "object") return false;
   const messages = (client as { messages?: unknown }).messages;
@@ -33,17 +49,51 @@ export function isAnthropicClient(client: unknown): client is AnthropicLike {
 export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter): T {
   const meteredCreate = async (
     params: AnthropicCreateParams,
-  ): Promise<AnthropicResponse> => {
+  ): Promise<AnthropicResponse | AnthropicStream> => {
     const start = Date.now();
     const originalCreate = client.messages.create.bind(client.messages);
 
-    // Streaming pass through. Phase 4 will handle stream usage extraction.
     if (params?.stream) {
-      return originalCreate(params);
+      const stream = (await originalCreate(params)) as AnthropicStream;
+      let model = params.model;
+      let inputTokens = 0;
+      let outputTokens = 0;
+
+      return wrapAsyncIterable<AnthropicStreamChunk>(stream, {
+        onChunk: (chunk) => {
+          if (chunk.type === "message_start" && chunk.message) {
+            if (chunk.message.model) model = chunk.message.model;
+            if (chunk.message.usage?.input_tokens !== undefined) {
+              inputTokens = chunk.message.usage.input_tokens;
+            }
+          }
+          if (chunk.type === "message_delta" && chunk.usage?.output_tokens !== undefined) {
+            outputTokens = chunk.usage.output_tokens;
+          }
+        },
+        onComplete: () => {
+          meter.record({
+            provider: "anthropic",
+            model,
+            inputTokens,
+            outputTokens,
+            latencyMs: Date.now() - start,
+          });
+        },
+        onError: () => {
+          meter.record({
+            provider: "anthropic",
+            model,
+            inputTokens: 0,
+            outputTokens: 0,
+            latencyMs: Date.now() - start,
+          });
+        },
+      });
     }
 
     try {
-      const response = await originalCreate(params);
+      const response = (await originalCreate(params)) as AnthropicResponse;
       meter.record({
         provider: "anthropic",
         model: response.model ?? params.model,
@@ -64,17 +114,5 @@ export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter):
     }
   };
 
-  return new Proxy(client, {
-    get(target, prop, receiver) {
-      if (prop === "messages") {
-        return new Proxy(target.messages, {
-          get(msgTarget, msgProp, msgReceiver) {
-            if (msgProp === "create") return meteredCreate;
-            return Reflect.get(msgTarget, msgProp, msgReceiver);
-          },
-        });
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-  }) as T;
+  return wrapPath(client, ["messages"], { create: meteredCreate });
 }

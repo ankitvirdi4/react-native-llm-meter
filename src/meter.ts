@@ -1,5 +1,7 @@
 import { computeCost } from "./pricing/compute.js";
 import { isAnthropicClient, wrapAnthropic } from "./providers/anthropic.js";
+import { isGoogleClient, wrapGoogle } from "./providers/google.js";
+import { isOpenAIClient, wrapOpenAI } from "./providers/openai.js";
 import { MemoryStorage } from "./storage/memory.js";
 import type { QueryRange, Storage } from "./storage/types.js";
 import type { MeterEvent, MeterEventInput } from "./types.js";
@@ -58,11 +60,11 @@ export class Meter {
   }
 
   wrap<T>(client: T): T {
-    if (isAnthropicClient(client)) {
-      return wrapAnthropic(client, this) as T;
-    }
+    if (isAnthropicClient(client)) return wrapAnthropic(client, this) as T;
+    if (isOpenAIClient(client)) return wrapOpenAI(client, this) as T;
+    if (isGoogleClient(client)) return wrapGoogle(client, this) as T;
     throw new Error(
-      "Unsupported client. react-native-llm-meter currently supports Anthropic. OpenAI and Google land in Phase 4.",
+      "Unsupported client. react-native-llm-meter supports Anthropic, OpenAI, and Google.",
     );
   }
 }
