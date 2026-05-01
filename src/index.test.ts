@@ -8,7 +8,7 @@ afterEach(() => {
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.2.0");
+    expect(VERSION).toBe("0.2.1");
   });
 });
 
@@ -289,6 +289,105 @@ describe("Meter", () => {
     await meter.flush();
 
     expect(errors).toEqual([failure]);
+  });
+
+  it("summary returns flat aggregation", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 1000,
+      outputTokens: 500,
+      latencyMs: 200,
+      ttftMs: 80,
+    });
+    meter.record({
+      provider: "openai",
+      model: "gpt-4o-mini",
+      inputTokens: 500,
+      outputTokens: 100,
+      latencyMs: 150,
+    });
+    await meter.flush();
+
+    const s = await meter.summary();
+    expect(s.count).toBe(2);
+    expect(s.inputTokens).toBe(1500);
+    expect(s.outputTokens).toBe(600);
+    expect(s.totalTokens).toBe(2100);
+    expect(s.byModel).toBeUndefined();
+  });
+
+  it("summary with groupBy returns nested aggregations", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 100,
+      outputTokens: 50,
+      latencyMs: 100,
+      tags: { userId: "alice" },
+    });
+    meter.record({
+      provider: "openai",
+      model: "gpt-4o-mini",
+      inputTokens: 50,
+      outputTokens: 25,
+      latencyMs: 80,
+      tags: { userId: "bob" },
+    });
+    await meter.flush();
+
+    const s = await meter.summary({
+      groupBy: ["model", "provider", "day", { tag: "userId" }],
+    });
+    expect(s.byModel?.["claude-sonnet-4-6"].count).toBe(1);
+    expect(s.byModel?.["gpt-4o-mini"].count).toBe(1);
+    expect(s.byProvider?.anthropic.count).toBe(1);
+    expect(s.byProvider?.openai.count).toBe(1);
+    expect(Object.keys(s.byDay ?? {})).toHaveLength(1);
+    expect(s.byTag?.userId.alice.count).toBe(1);
+    expect(s.byTag?.userId.bob.count).toBe(1);
+  });
+
+  it("summary accepts a single GroupBy without an array", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 10,
+      outputTokens: 5,
+      latencyMs: 20,
+    });
+    await meter.flush();
+
+    const s = await meter.summary({ groupBy: "model" });
+    expect(s.byModel?.["claude-haiku-4-5"].count).toBe(1);
+    expect(s.byProvider).toBeUndefined();
+  });
+
+  it("summary respects from and to range", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 10,
+      outputTokens: 5,
+      latencyMs: 20,
+      timestamp: 1000,
+    });
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 10,
+      outputTokens: 5,
+      latencyMs: 20,
+      timestamp: 5000,
+    });
+    await meter.flush();
+
+    const s = await meter.summary({ from: 2000, to: 6000 });
+    expect(s.count).toBe(1);
   });
 
   it("subscribe fires after storage commits, can be unsubscribed", async () => {

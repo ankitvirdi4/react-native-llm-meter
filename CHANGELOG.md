@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1 (2026-05-01)
+
+### Added
+
+- `meter.summary(opts?)` convenience method. Returns a `SummaryResult` with the same flat fields as `summarize` plus optional `byModel`, `byProvider`, `byDay`, and `byTag` rollups when `opts.groupBy` is set. Same shape and source data as the existing `summarize` and `summarizeBy` primitives, just one call.
+
+### Documentation
+
+- README rewritten with a before / after Quick start, a "What you get" code block showing realistic `meter.summary` output, an ASCII architecture diagram, a comparison table vs server side observability, an FAQ, a roadmap section, and an About section.
+
 ## 0.2.0 (2026-05-01)
 
 Closes the remaining four review weaknesses. Breaking changes ship under `next` dist tag first; promote to `latest` after a soak window.

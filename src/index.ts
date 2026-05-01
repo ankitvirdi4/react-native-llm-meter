@@ -1,7 +1,12 @@
-export const VERSION = "0.2.0";
+export const VERSION = "0.2.1";
 
 export { Meter } from "./meter.js";
-export type { MeterListener, MeterOptions } from "./meter.js";
+export type {
+  MeterListener,
+  MeterOptions,
+  SummaryOptions,
+  SummaryResult,
+} from "./meter.js";
 export { computeCost } from "./pricing/compute.js";
 export { PRICING } from "./pricing/table.js";
 export type { ModelPricing, PricingTable } from "./pricing/table.js";

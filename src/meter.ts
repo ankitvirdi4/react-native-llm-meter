@@ -1,3 +1,9 @@
+import {
+  type GroupBy,
+  type Summary,
+  summarize,
+  summarizeBy,
+} from "./aggregate.js";
 import { type BudgetOptions, setBudgetWatcher } from "./budget.js";
 import { computeCost } from "./pricing/compute.js";
 import { PRICING } from "./pricing/table.js";
@@ -29,6 +35,19 @@ export interface MeterOptions {
   storage?: Storage;
   onError?: (err: unknown) => void;
   onUnknownModel?: (provider: Provider, model: string) => void;
+}
+
+export interface SummaryOptions {
+  from?: number;
+  to?: number;
+  groupBy?: GroupBy | readonly GroupBy[];
+}
+
+export interface SummaryResult extends Summary {
+  byModel?: Record<string, Summary>;
+  byProvider?: Record<string, Summary>;
+  byDay?: Record<string, Summary>;
+  byTag?: Record<string, Record<string, Summary>>;
 }
 
 export type MeterListener = (event: MeterEvent) => void | Promise<void>;
@@ -121,6 +140,29 @@ export class Meter {
 
   async clear(): Promise<void> {
     await this.storage.clear();
+  }
+
+  async summary(opts: SummaryOptions = {}): Promise<SummaryResult> {
+    const events = await this.storage.query({ from: opts.from, to: opts.to });
+    const flat = summarize(events);
+    const result: SummaryResult = { ...flat };
+
+    const groups = opts.groupBy === undefined
+      ? []
+      : Array.isArray(opts.groupBy)
+        ? opts.groupBy
+        : [opts.groupBy];
+
+    for (const g of groups) {
+      if (g === "model") result.byModel = summarizeBy(events, "model");
+      else if (g === "provider") result.byProvider = summarizeBy(events, "provider");
+      else if (g === "day") result.byDay = summarizeBy(events, "day");
+      else if (typeof g === "object" && "tag" in g) {
+        result.byTag = result.byTag ?? {};
+        result.byTag[g.tag] = summarizeBy(events, g);
+      }
+    }
+    return result;
   }
 
   async flush(): Promise<void> {
