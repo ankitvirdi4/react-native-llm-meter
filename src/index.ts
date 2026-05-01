@@ -1,4 +1,4 @@
-export const VERSION = "0.2.1";
+export const VERSION = "0.2.2";
 
 export { Meter } from "./meter.js";
 export type {
@@ -100,3 +100,11 @@ export type {
   UseMetricsResult,
 } from "./react/hooks.js";
 export type { MeterEvent, MeterEventInput, Provider } from "./types.js";
+// buildOverlayState is pure aggregation logic and lives on the main entry so
+// non React consumers (CI, server preprocessing) can use it without pulling
+// react-native via the /overlay subpath.
+export { buildOverlayState } from "./overlay/state.js";
+export type {
+  BuildOverlayStateOptions,
+  OverlayState,
+} from "./overlay/state.js";

@@ -8,7 +8,7 @@ afterEach(() => {
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.2.1");
+    expect(VERSION).toBe("0.2.2");
   });
 });
 

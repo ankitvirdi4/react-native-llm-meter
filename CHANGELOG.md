@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2 (2026-05-01)
+
+### Fixed
+
+- `buildOverlayState` and `OverlayState` are now also exported from the main entry. Previously they only lived on the `/overlay` subpath, which forced a runtime `react-native` import. Non React consumers (CI pipelines, server preprocessing, Node tooling) can now use the pure aggregation helper without touching the React component bundle.
+- Caught by an isolated `npm pack` plus install plus runtime smoke test against the published tarball. The bundle, exports, types, and end to end Meter API all resolve cleanly in a fresh Node 22 dir with only the package installed.
+
 ## 0.2.1 (2026-05-01)
 
 ### Added
