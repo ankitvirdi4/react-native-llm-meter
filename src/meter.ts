@@ -1,4 +1,5 @@
 import { computeCost } from "./pricing/compute.js";
+import { isAnthropicClient, wrapAnthropic } from "./providers/anthropic.js";
 import type { MeterEvent, MeterEventInput } from "./types.js";
 
 function generateId(): string {
@@ -31,5 +32,14 @@ export class Meter {
 
   clear(): void {
     this.events = [];
+  }
+
+  wrap<T>(client: T): T {
+    if (isAnthropicClient(client)) {
+      return wrapAnthropic(client, this) as T;
+    }
+    throw new Error(
+      "Unsupported client. react-native-llm-meter currently supports Anthropic. OpenAI and Google land in Phase 4.",
+    );
   }
 }

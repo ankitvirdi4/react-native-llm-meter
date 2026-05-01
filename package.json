@@ -1,6 +1,6 @@
 {
   "name": "react-native-llm-meter",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "LLM observability for React Native and Expo. Token usage, cost, and latency metrics, on device, multi provider.",
   "license": "MIT",
   "author": "Ankit Virdi <ankitvirdi4@gmail.com> (https://github.com/ankitvirdi4)",
@@ -49,6 +49,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest",
+    "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
@@ -68,6 +69,7 @@
   "devDependencies": {
     "@react-native-async-storage/async-storage": "^1.23.1",
     "@types/react": "^19.0.0",
+    "@vitest/coverage-v8": "^2.0.5",
     "tsup": "^8.2.4",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
