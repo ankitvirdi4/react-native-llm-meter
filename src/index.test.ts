@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Meter, VERSION, computeCost } from "./index.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.1.0");
+    expect(VERSION).toBe("0.1.1");
   });
 });
 
@@ -244,6 +248,132 @@ describe("Meter", () => {
 
     expect(a).toEqual(["x"]);
     expect(b).toEqual(["x"]);
+  });
+
+  it("warns once per unknown (provider, model) pair via onUnknownModel", async () => {
+    const warnings: Array<[string, string]> = [];
+    const meter = new Meter({
+      onUnknownModel: (provider, model) => warnings.push([provider, model]),
+    });
+
+    meter.record({
+      provider: "anthropic",
+      model: "claude-future-99",
+      inputTokens: 100,
+      outputTokens: 50,
+      latencyMs: 100,
+    });
+    meter.record({
+      provider: "anthropic",
+      model: "claude-future-99",
+      inputTokens: 100,
+      outputTokens: 50,
+      latencyMs: 100,
+    });
+    await meter.flush();
+
+    expect(warnings).toEqual([["anthropic", "claude-future-99"]]);
+  });
+
+  it("warns separately for distinct unknown models", async () => {
+    const warnings: Array<[string, string]> = [];
+    const meter = new Meter({
+      onUnknownModel: (provider, model) => warnings.push([provider, model]),
+    });
+
+    meter.record({
+      provider: "openai",
+      model: "gpt-future",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+    });
+    meter.record({
+      provider: "google",
+      model: "gemini-future",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+    });
+    await meter.flush();
+
+    expect(warnings).toEqual([
+      ["openai", "gpt-future"],
+      ["google", "gemini-future"],
+    ]);
+  });
+
+  it("does not warn for a known model", async () => {
+    const warnings: Array<[string, string]> = [];
+    const meter = new Meter({
+      onUnknownModel: (provider, model) => warnings.push([provider, model]),
+    });
+
+    meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+    });
+    await meter.flush();
+
+    expect(warnings).toEqual([]);
+  });
+
+  it("does not warn when the user supplies costUsd directly", async () => {
+    const warnings: Array<[string, string]> = [];
+    const meter = new Meter({
+      onUnknownModel: (provider, model) => warnings.push([provider, model]),
+    });
+
+    meter.record({
+      provider: "anthropic",
+      model: "claude-future-99",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+      costUsd: 0.0042,
+    });
+    await meter.flush();
+
+    expect(warnings).toEqual([]);
+  });
+
+  it("default handler logs to console.warn", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const meter = new Meter();
+
+    meter.record({
+      provider: "openai",
+      model: "gpt-totally-new",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+    });
+    await meter.flush();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/Unknown model "gpt-totally-new"/);
+  });
+
+  it("swallows onUnknownModel handler errors", async () => {
+    const meter = new Meter({
+      onUnknownModel: () => {
+        throw new Error("handler boom");
+      },
+    });
+
+    expect(() =>
+      meter.record({
+        provider: "anthropic",
+        model: "claude-future-99",
+        inputTokens: 1,
+        outputTokens: 1,
+        latencyMs: 1,
+      }),
+    ).not.toThrow();
+    await meter.flush();
   });
 
   it("swallows storage errors silently when no onError given", async () => {

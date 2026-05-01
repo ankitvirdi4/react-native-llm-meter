@@ -1,5 +1,6 @@
 import { type BudgetOptions, setBudgetWatcher } from "./budget.js";
 import { computeCost } from "./pricing/compute.js";
+import { PRICING } from "./pricing/table.js";
 import { isAnthropicClient, wrapAnthropic } from "./providers/anthropic.js";
 import { isGoogleClient, wrapGoogle } from "./providers/google.js";
 import { isOpenAIClient, wrapOpenAI } from "./providers/openai.js";
@@ -9,7 +10,7 @@ import {
 } from "./remote.js";
 import { MemoryStorage } from "./storage/memory.js";
 import type { QueryRange, Storage } from "./storage/types.js";
-import type { MeterEvent, MeterEventInput } from "./types.js";
+import type { MeterEvent, MeterEventInput, Provider } from "./types.js";
 
 function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -18,22 +19,52 @@ function generateId(): string {
 export interface MeterOptions {
   storage?: Storage;
   onError?: (err: unknown) => void;
+  onUnknownModel?: (provider: Provider, model: string) => void;
 }
 
 export type MeterListener = (event: MeterEvent) => void | Promise<void>;
 
+function defaultUnknownModelWarning(provider: Provider, model: string): void {
+  if (typeof console !== "undefined" && typeof console.warn === "function") {
+    console.warn(
+      `[react-native-llm-meter] Unknown model "${model}" for provider "${provider}". ` +
+        `Cost will be 0 for this model. Add it to src/pricing/table.ts and submit a PR ` +
+        `via the pricing-update template, or pass costUsd directly to meter.record.`,
+    );
+  }
+}
+
 export class Meter {
   private readonly storage: Storage;
   private readonly onError: (err: unknown) => void;
+  private readonly onUnknownModel: (provider: Provider, model: string) => void;
   private pending: Set<Promise<unknown>> = new Set();
   private listeners: Set<MeterListener> = new Set();
+  private warnedModels: Set<string> = new Set();
 
   constructor(opts: MeterOptions = {}) {
     this.storage = opts.storage ?? new MemoryStorage();
     this.onError = opts.onError ?? (() => {});
+    this.onUnknownModel = opts.onUnknownModel ?? defaultUnknownModelWarning;
+  }
+
+  private maybeWarnUnknownModel(provider: Provider, model: string): void {
+    const key = `${provider}:${model}`;
+    if (this.warnedModels.has(key)) return;
+    if (PRICING[provider]?.[model]) return;
+    this.warnedModels.add(key);
+    try {
+      this.onUnknownModel(provider, model);
+    } catch {
+      // Warning handler errors must not break recording.
+    }
   }
 
   record(input: MeterEventInput): MeterEvent {
+    if (input.costUsd === undefined) {
+      this.maybeWarnUnknownModel(input.provider, input.model);
+    }
+
     const event: MeterEvent = {
       provider: input.provider,
       model: input.model,

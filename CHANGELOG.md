@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.1 (2026-05-01)
+
+### Added
+
+- `onUnknownModel(provider, model)` option on `MeterOptions`. The meter calls it once per unique (provider, model) pair when an event is recorded against a model missing from the pricing table. Default handler logs to `console.warn` with a pointer to the pricing PR template. Pass `() => {}` to silence, or route to Sentry / your logger.
+- `record` skips the warning when the caller supplies `costUsd` directly. No spurious warnings for users with custom pricing.
+
+### Fixed
+
+- Surfaces the cost = 0 friction reviewers flagged. Previously a model missing from the table silently returned `costUsd: 0`, which forced users to debug.
+
 ## 0.1.0 (2026-05-01)
 
 First public release. Track LLM token usage, cost, and latency from React Native and Expo apps.

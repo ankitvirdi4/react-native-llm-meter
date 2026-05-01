@@ -245,9 +245,22 @@ OpenAI only includes `usage` in the streaming response when you opt in. Pass
 call.
 
 **Cost is 0 for my model.**
-The model name your provider returned is not in the pricing table. Either pin
-to a model in the table, or open a PR adding the new entry to
-`src/pricing/table.ts`.
+The model name your provider returned is not in the pricing table. The library
+warns once per unknown (provider, model) pair via `console.warn` so you spot the
+gap early. Either pin to a model in the table, pass `costUsd` directly to
+`meter.record`, or open a PR adding the new entry to `src/pricing/table.ts`.
+
+To route warnings somewhere else (Sentry, your logger), pass `onUnknownModel`:
+
+```ts
+const meter = new Meter({
+  onUnknownModel: (provider, model) => {
+    Sentry.captureMessage(`Unpriced model ${provider}/${model}`);
+  },
+});
+```
+
+Pass `() => {}` to silence.
 
 **`Unsupported client` error from `meter.wrap`.**
 Your client does not match any detection shape. The library currently supports
