@@ -2,6 +2,8 @@ src/
 tests/
 examples/
 .github/
+.expo/
+.claude/
 
 tsconfig.json
 tsup.config.ts
@@ -12,6 +14,7 @@ vitest.config.ts
 .editorconfig
 .prettierrc
 .eslintrc
+*.tsbuildinfo
 
 coverage/
 node_modules/
@@ -20,5 +23,12 @@ node_modules/
 .DS_Store
 .env
 .env.local
+.npmrc
 .vscode/
 .idea/
+
+CONTRIBUTING.md
+ROADMAP.md
+CLAUDE.md
+NOTES.md
+TODO.md

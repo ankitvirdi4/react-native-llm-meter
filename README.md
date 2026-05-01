@@ -41,7 +41,9 @@ npx expo install expo-sqlite
 import { Meter, MeterProvider } from "react-native-llm-meter";
 import Anthropic from "@anthropic-ai/sdk";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// In Expo, expose your key via EXPO_PUBLIC_ANTHROPIC_API_KEY in .env.
+// In bare RN, load from your secure config layer of choice.
+const anthropic = new Anthropic({ apiKey: process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY });
 const meter = new Meter();
 const client = meter.wrap(anthropic);
 

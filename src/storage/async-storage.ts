@@ -23,6 +23,16 @@ function dayBucket(timestamp: number): string {
   return new Date(timestamp).toISOString().slice(0, 10);
 }
 
+function safeParseEvents(raw: string): MeterEvent[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as MeterEvent[]) : [];
+  } catch {
+    // Bucket is corrupted (foreign writer or partial write). Treat as empty.
+    return [];
+  }
+}
+
 export class AsyncStorageAdapter implements Storage {
   private readonly asyncStorage: AsyncStorageLike;
   private readonly retentionDays: number;
@@ -48,7 +58,7 @@ export class AsyncStorageAdapter implements Storage {
     return this.enqueue(async () => {
       const key = this.prefix + dayBucket(event.timestamp);
       const raw = await this.asyncStorage.getItem(key);
-      const events: MeterEvent[] = raw ? JSON.parse(raw) : [];
+      const events: MeterEvent[] = raw ? safeParseEvents(raw) : [];
       events.push(event);
       await this.asyncStorage.setItem(key, JSON.stringify(events));
     });
@@ -66,7 +76,7 @@ export class AsyncStorageAdapter implements Storage {
       for (const key of ourKeys) {
         const raw = await this.asyncStorage.getItem(key);
         if (!raw) continue;
-        const parsed: MeterEvent[] = JSON.parse(raw);
+        const parsed = safeParseEvents(raw);
         for (const event of parsed) {
           if (range?.from !== undefined && event.timestamp < range.from) continue;
           if (range?.to !== undefined && event.timestamp > range.to) continue;

@@ -71,6 +71,25 @@ describe("HttpRemoteSink", () => {
     await expect(sink.send([])).rejects.toThrow(/HTTP 503/);
   });
 
+  it("aborts the request when timeoutMs elapses", async () => {
+    const fetchMock = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new Error("aborted")),
+          );
+        }),
+    ) as unknown as typeof fetch;
+
+    const sink = new HttpRemoteSink({
+      url: "https://example.test/api",
+      fetch: fetchMock,
+      timeoutMs: 50,
+    });
+
+    await expect(sink.send([])).rejects.toThrow();
+  });
+
   it("throws if no fetch implementation is available", () => {
     const original = globalThis.fetch;
     // @ts-expect-error temporarily clear global fetch

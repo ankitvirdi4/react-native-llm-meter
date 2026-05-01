@@ -201,4 +201,22 @@ describe("AsyncStorageAdapter", () => {
 
     expect(await adapter.query()).toEqual([]);
   });
+
+  it("treats a corrupted bucket as empty rather than throwing on append", async () => {
+    const fake = makeFakeAsyncStorage();
+    fake.store.set("llm-meter:events:2026-05-01", "{not json");
+    const adapter = new AsyncStorageAdapter({ asyncStorage: fake });
+
+    await adapter.append(makeEvent({ requestId: "fresh" }));
+    const events = await adapter.query();
+    expect(events.map((e) => e.requestId)).toEqual(["fresh"]);
+  });
+
+  it("treats a non-array bucket as empty on query", async () => {
+    const fake = makeFakeAsyncStorage();
+    fake.store.set("llm-meter:events:2026-05-01", '{"oops":true}');
+    const adapter = new AsyncStorageAdapter({ asyncStorage: fake });
+
+    expect(await adapter.query()).toEqual([]);
+  });
 });

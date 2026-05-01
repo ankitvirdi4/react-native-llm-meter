@@ -1,14 +1,27 @@
 node_modules/
 dist/
 coverage/
+.expo/
+*.tsbuildinfo
 
 .DS_Store
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 .env
 .env.local
+.env.*.local
+.npmrc
 
 .vscode/
 .idea/
 
 .claude/
+
+# Internal planning notes that should never ship to a public repo
+ROADMAP.md
+CLAUDE.md
+NOTES.md
+TODO.md

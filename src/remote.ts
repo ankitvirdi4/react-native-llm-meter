@@ -15,12 +15,16 @@ export interface HttpRemoteSinkOptions {
   url: string;
   headers?: Record<string, string>;
   fetch?: typeof fetch;
+  timeoutMs?: number;
 }
+
+const DEFAULT_HTTP_TIMEOUT_MS = 10_000;
 
 export class HttpRemoteSink implements RemoteSink {
   private readonly url: string;
   private readonly headers: Record<string, string>;
   private readonly fetchFn: typeof fetch;
+  private readonly timeoutMs: number;
 
   constructor(opts: HttpRemoteSinkOptions) {
     this.url = opts.url;
@@ -30,18 +34,26 @@ export class HttpRemoteSink implements RemoteSink {
       throw new Error("HttpRemoteSink requires a fetch implementation");
     }
     this.fetchFn = f;
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS;
   }
 
   async send(events: MeterEvent[]): Promise<void> {
-    const response = await this.fetchFn(this.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...this.headers },
-      body: JSON.stringify({ events }),
-    });
-    if (!response.ok) {
-      throw new Error(
-        `HttpRemoteSink: HTTP ${response.status} from ${this.url}`,
-      );
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await this.fetchFn(this.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...this.headers },
+        body: JSON.stringify({ events }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error(
+          `HttpRemoteSink: HTTP ${response.status} from ${this.url}`,
+        );
+      }
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

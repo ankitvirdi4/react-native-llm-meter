@@ -1,4 +1,4 @@
-export const VERSION = "0.0.9";
+export const VERSION = "0.1.0";
 
 export { Meter } from "./meter.js";
 export type { MeterListener, MeterOptions } from "./meter.js";

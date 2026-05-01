@@ -3,7 +3,7 @@ import { Meter, VERSION, computeCost } from "./index.js";
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.0.9");
+    expect(VERSION).toBe("0.1.0");
   });
 });
 
