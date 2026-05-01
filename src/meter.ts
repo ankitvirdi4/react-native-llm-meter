@@ -1,7 +1,12 @@
+import { type BudgetOptions, setBudgetWatcher } from "./budget.js";
 import { computeCost } from "./pricing/compute.js";
 import { isAnthropicClient, wrapAnthropic } from "./providers/anthropic.js";
 import { isGoogleClient, wrapGoogle } from "./providers/google.js";
 import { isOpenAIClient, wrapOpenAI } from "./providers/openai.js";
+import {
+  type AttachRemoteSinkOptions,
+  attachRemoteSink as attachRemoteSinkFn,
+} from "./remote.js";
 import { MemoryStorage } from "./storage/memory.js";
 import type { QueryRange, Storage } from "./storage/types.js";
 import type { MeterEvent, MeterEventInput } from "./types.js";
@@ -15,7 +20,7 @@ export interface MeterOptions {
   onError?: (err: unknown) => void;
 }
 
-export type MeterListener = (event: MeterEvent) => void;
+export type MeterListener = (event: MeterEvent) => void | Promise<void>;
 
 export class Meter {
   private readonly storage: Storage;
@@ -44,10 +49,10 @@ export class Meter {
 
     const promise = this.storage
       .append(event)
-      .then(() => {
+      .then(async () => {
         for (const listener of this.listeners) {
           try {
-            listener(event);
+            await listener(event);
           } catch {
             // Listener errors must not break recording.
           }
@@ -76,6 +81,14 @@ export class Meter {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  setBudget(opts: BudgetOptions): () => void {
+    return setBudgetWatcher(this, opts);
+  }
+
+  attachRemoteSink(opts: AttachRemoteSinkOptions): () => void {
+    return attachRemoteSinkFn(this, opts);
   }
 
   wrap<T>(client: T): T {

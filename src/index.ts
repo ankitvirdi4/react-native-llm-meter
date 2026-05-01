@@ -1,4 +1,4 @@
-export const VERSION = "0.0.7";
+export const VERSION = "0.0.9";
 
 export { Meter } from "./meter.js";
 export type { MeterListener, MeterOptions } from "./meter.js";
@@ -44,6 +44,31 @@ export type {
   SqliteParams,
 } from "./storage/sqlite.js";
 export type { QueryRange, Storage } from "./storage/types.js";
+export {
+  AsyncStorageBudgetState,
+  MemoryBudgetState,
+  setBudgetWatcher,
+  startOfUtcDay,
+  startOfUtcMonth,
+  startOfUtcWeek,
+} from "./budget.js";
+export type {
+  AsyncStorageBudgetStateOptions,
+  BudgetCrossInfo,
+  BudgetOptions,
+  BudgetPeriod,
+  BudgetStateStore,
+} from "./budget.js";
+export {
+  attachRemoteSink,
+  HttpRemoteSink,
+  NoopRemoteSink,
+} from "./remote.js";
+export type {
+  AttachRemoteSinkOptions,
+  HttpRemoteSinkOptions,
+  RemoteSink,
+} from "./remote.js";
 export { percentile, summarize, summarizeBy } from "./aggregate.js";
 export type { GroupBy, Summary } from "./aggregate.js";
 export { MeterProvider, useBudget, useMeter, useMetrics } from "./hooks.js";
