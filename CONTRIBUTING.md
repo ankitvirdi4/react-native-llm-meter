@@ -37,9 +37,19 @@ Check the [good first issue](https://github.com/ankitvirdi4/react-native-llm-met
 label for beginner friendly tasks. If nothing's there yet, open an issue
 describing what you'd like to work on and we'll scope something together.
 
+## Releasing (maintainers only)
+
+1. Bump `version` in `package.json` and the `VERSION` constant in `src/index.ts`. Update the matching test in `src/index.test.ts`.
+2. Add a section to `CHANGELOG.md` describing the changes.
+3. Run `npm run typecheck`, `npm test`, `npm run build`. All must pass.
+4. Commit on `main`, tag the release: `git tag -a vX.Y.Z -m "vX.Y.Z, ..."`.
+5. Push: `git push origin main && git push origin vX.Y.Z`.
+6. Publish to npm: `npm publish --access public`.
+7. Create the GitHub release with `gh release create vX.Y.Z --title "..." --notes "..."`.
+
 ## Code of conduct
 
-Be kind. Assume good intent.
+By participating, you agree to follow our [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Questions?
 

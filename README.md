@@ -1,6 +1,10 @@
 # react-native-llm-meter
 
-> 🚧 **Pre release.** v0.1.0 launching soon. Star to follow along.
+[![npm](https://img.shields.io/npm/v/react-native-llm-meter.svg)](https://www.npmjs.com/package/react-native-llm-meter)
+[![CI](https://github.com/ankitvirdi4/react-native-llm-meter/actions/workflows/ci.yml/badge.svg)](https://github.com/ankitvirdi4/react-native-llm-meter/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/react-native-llm-meter.svg)](./LICENSE)
+[![Bundle size](https://img.shields.io/bundlephobia/minzip/react-native-llm-meter)](https://bundlephobia.com/package/react-native-llm-meter)
+[![Types](https://img.shields.io/npm/types/react-native-llm-meter.svg)](https://www.npmjs.com/package/react-native-llm-meter)
 
 LLM observability built for React Native and Expo. Track token usage, cost, and
 latency for Claude, GPT, and Gemini calls on device, with optional remote sync.
@@ -277,11 +281,24 @@ Native components which are not available in Node.
 
 ## Status
 
-The library is being built in public, one phase at a time. Each interim
-release ships under a beta dist tag. v0.1.0 lands when phases 1 through 10 are
-done.
+v0.1.1 is on npm. The library is built in public, with releases tagged on
+GitHub and a tested 99% coverage suite. See [CHANGELOG.md](./CHANGELOG.md) for
+release notes and [CONTRIBUTING.md](./CONTRIBUTING.md) to help shape what
+ships next.
 
 Built by [Ankit Virdi](https://github.com/ankitvirdi4).
+
+## Security
+
+Found a vulnerability? See [SECURITY.md](./SECURITY.md) for the disclosure
+path. Please do not file public issues for security reports.
+
+## Contributing
+
+PRs and issues welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup,
+test, and PR conventions, and the
+[pricing update template](.github/PULL_REQUEST_TEMPLATE/pricing-update.md) for
+rate updates.
 
 ## License
 
