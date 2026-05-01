@@ -15,6 +15,10 @@ import type { Provider } from "../types.js";
 export interface ModelPricing {
   input: number;
   output: number;
+  // Anthropic prompt cache rates. When unset, computeCost falls back to
+  // input * 0.1 for reads and input * 1.25 for writes (Anthropic standard).
+  cacheRead?: number;
+  cacheCreate?: number;
 }
 
 export type PricingTable = Record<Provider, Record<string, ModelPricing>>;

@@ -83,7 +83,7 @@ describe("wrapAnthropic", () => {
     expect(events[0].costUsd).toBeCloseTo(0.0105, 6);
     expect(events[0].latencyMs).toBeGreaterThanOrEqual(0);
     expect(events[0].timestamp).toBeGreaterThan(0);
-    expect(events[0].requestId).toMatch(/^[a-z0-9]+-[a-z0-9]+$/);
+    expect(events[0].requestId.length).toBeGreaterThan(0);
   });
 
   it("records a zero token event and rethrows on error", async () => {
@@ -108,6 +108,66 @@ describe("wrapAnthropic", () => {
         costUsd: 0,
       }),
     );
+  });
+
+  it("captures cache read and creation tokens from response usage", async () => {
+    const meter = new Meter();
+    const fake = makeFakeClient({
+      response: {
+        model: "claude-sonnet-4-6",
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_read_input_tokens: 1000,
+          cache_creation_input_tokens: 500,
+        },
+      },
+    });
+    const wrapped = wrapAnthropic(fake as unknown as AnthropicLike, meter);
+
+    await wrapped.messages.create({ model: "claude-sonnet-4-6" });
+    await meter.flush();
+
+    const event = (await meter.getEvents())[0];
+    expect(event.cacheReadInputTokens).toBe(1000);
+    expect(event.cacheCreationInputTokens).toBe(500);
+    // 100*3 + 50*15 + 1000*0.3 + 500*3.75 = 300 + 750 + 300 + 1875 = 3225 / 1M
+    expect(event.costUsd).toBeCloseTo(0.003225, 9);
+  });
+
+  it("captures cache tokens during streaming via message_start usage", async () => {
+    const meter = new Meter();
+    async function* withCache() {
+      yield {
+        type: "message_start",
+        message: {
+          model: "claude-sonnet-4-6",
+          usage: {
+            input_tokens: 50,
+            cache_read_input_tokens: 200,
+            cache_creation_input_tokens: 0,
+          },
+        },
+      };
+      yield { type: "content_block_delta", delta: { text: "hi" } };
+      yield { type: "message_delta", usage: { output_tokens: 10 } };
+      yield { type: "message_stop" };
+    }
+    const fake = { messages: { create: vi.fn(async () => withCache()) } };
+    const wrapped = wrapAnthropic(fake as unknown as AnthropicLike, meter);
+
+    const stream = await wrapped.messages.create({
+      model: "claude-sonnet-4-6",
+      stream: true,
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // drain
+    }
+    await meter.flush();
+
+    const event = (await meter.getEvents())[0];
+    expect(event.cacheReadInputTokens).toBe(200);
+    expect(event.cacheCreationInputTokens).toBe(0);
   });
 
   it("falls back to params.model when response.model is missing", async () => {

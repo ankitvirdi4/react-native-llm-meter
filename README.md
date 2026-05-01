@@ -256,6 +256,16 @@ meter.attachRemoteSink({
 `RemoteSink` is just `{ send(events): Promise<void> }`. Implement your own to
 write to Sentry, Datadog, a custom backend, anywhere.
 
+### Server side deduplication
+
+The library treats any HTTP 2xx as success and moves on. If your endpoint
+returns 200 but fails to persist, those events are dropped on the client.
+To recover, deduplicate on the server using `event.requestId` (a UUID) as the
+idempotency key. Every event has a stable `requestId`, generated via
+`crypto.randomUUID()` when available with a Math-based fallback for older
+runtimes. Acknowledged retries land on the same id, so the server can ignore
+duplicates safely. Server-issued ack tokens are on the v0.3 roadmap.
+
 ## Pricing accuracy
 
 Provider prices are hardcoded in [`src/pricing/table.ts`](src/pricing/table.ts),

@@ -18,12 +18,16 @@ export interface AnthropicCreateParams {
   [key: string]: unknown;
 }
 
+export interface AnthropicUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+}
+
 export interface AnthropicResponse {
   model?: string;
-  usage?: {
-    input_tokens?: number;
-    output_tokens?: number;
-  };
+  usage?: AnthropicUsage;
   [key: string]: unknown;
 }
 
@@ -31,9 +35,9 @@ export interface AnthropicStreamChunk {
   type?: string;
   message?: {
     model?: string;
-    usage?: { input_tokens?: number; output_tokens?: number };
+    usage?: AnthropicUsage;
   };
-  usage?: { input_tokens?: number; output_tokens?: number };
+  usage?: AnthropicUsage;
   [key: string]: unknown;
 }
 
@@ -58,14 +62,21 @@ export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter):
       let model = params.model;
       let inputTokens = 0;
       let outputTokens = 0;
+      let cacheReadInputTokens: number | undefined;
+      let cacheCreationInputTokens: number | undefined;
       let ttftMs: number | undefined;
 
       return wrapAsyncIterable<AnthropicStreamChunk>(stream, {
         onChunk: (chunk) => {
           if (chunk.type === "message_start" && chunk.message) {
             if (chunk.message.model) model = chunk.message.model;
-            if (chunk.message.usage?.input_tokens !== undefined) {
-              inputTokens = chunk.message.usage.input_tokens;
+            const u = chunk.message.usage;
+            if (u?.input_tokens !== undefined) inputTokens = u.input_tokens;
+            if (u?.cache_read_input_tokens !== undefined) {
+              cacheReadInputTokens = u.cache_read_input_tokens;
+            }
+            if (u?.cache_creation_input_tokens !== undefined) {
+              cacheCreationInputTokens = u.cache_creation_input_tokens;
             }
           }
           if (chunk.type === "content_block_delta" && ttftMs === undefined) {
@@ -83,6 +94,8 @@ export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter):
             outputTokens,
             latencyMs: Date.now() - start,
             ttftMs,
+            cacheReadInputTokens,
+            cacheCreationInputTokens,
           });
         },
         onError: () => {
@@ -106,6 +119,8 @@ export function wrapAnthropic<T extends AnthropicLike>(client: T, meter: Meter):
         inputTokens: response.usage?.input_tokens ?? 0,
         outputTokens: response.usage?.output_tokens ?? 0,
         latencyMs: Date.now() - start,
+        cacheReadInputTokens: response.usage?.cache_read_input_tokens,
+        cacheCreationInputTokens: response.usage?.cache_creation_input_tokens,
       });
       return response;
     } catch (err) {

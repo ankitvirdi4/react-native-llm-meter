@@ -178,6 +178,55 @@ describe("wrapOpenAI streaming", () => {
     expect(event.outputTokens).toBe(50);
   });
 
+  it("auto enables stream_options.include_usage when not set", async () => {
+    const meter = new Meter();
+    const create = vi.fn(async () => {
+      async function* s() {
+        yield { choices: [{ delta: { content: "hi" } }] };
+        yield { usage: { prompt_tokens: 5, completion_tokens: 5 } };
+      }
+      return s();
+    });
+    const fake = { chat: { completions: { create } } };
+    const wrapped = wrapOpenAI(fake as unknown as OpenAILike, meter);
+
+    const stream = await wrapped.chat.completions.create({
+      model: "gpt-4o",
+      stream: true,
+    });
+    for await (const _ of stream as AsyncIterable<unknown>) {
+      // drain
+    }
+
+    const passedParams = create.mock.calls[0][0] as {
+      stream_options?: { include_usage?: boolean };
+    };
+    expect(passedParams.stream_options?.include_usage).toBe(true);
+  });
+
+  it("respects user supplied stream_options.include_usage = false", async () => {
+    const meter = new Meter();
+    const create = vi.fn(async () => {
+      async function* s() {
+        yield { choices: [{ delta: { content: "hi" } }] };
+      }
+      return s();
+    });
+    const fake = { chat: { completions: { create } } };
+    const wrapped = wrapOpenAI(fake as unknown as OpenAILike, meter);
+
+    await wrapped.chat.completions.create({
+      model: "gpt-4o",
+      stream: true,
+      stream_options: { include_usage: false },
+    });
+
+    const passedParams = create.mock.calls[0][0] as {
+      stream_options?: { include_usage?: boolean };
+    };
+    expect(passedParams.stream_options?.include_usage).toBe(false);
+  });
+
   it("captures ttftMs on the first delta with non empty content", async () => {
     const meter = new Meter();
     async function* withRoleFirst() {

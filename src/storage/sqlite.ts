@@ -25,6 +25,8 @@ interface EventRow {
   cost_usd: number;
   timestamp: number;
   ttft_ms: number | null;
+  cache_read_input_tokens: number | null;
+  cache_creation_input_tokens: number | null;
 }
 
 interface ColumnInfo {
@@ -46,6 +48,15 @@ function rowToEvent(row: EventRow): MeterEvent {
   };
   if (row.ttft_ms !== null && row.ttft_ms !== undefined) {
     event.ttftMs = row.ttft_ms;
+  }
+  if (row.cache_read_input_tokens !== null && row.cache_read_input_tokens !== undefined) {
+    event.cacheReadInputTokens = row.cache_read_input_tokens;
+  }
+  if (
+    row.cache_creation_input_tokens !== null &&
+    row.cache_creation_input_tokens !== undefined
+  ) {
+    event.cacheCreationInputTokens = row.cache_creation_input_tokens;
   }
   return event;
 }
@@ -78,16 +89,28 @@ export class SqliteAdapter implements Storage {
          latency_ms INTEGER NOT NULL,
          cost_usd REAL NOT NULL,
          timestamp INTEGER NOT NULL,
-         ttft_ms INTEGER NULL
+         ttft_ms INTEGER NULL,
+         cache_read_input_tokens INTEGER NULL,
+         cache_creation_input_tokens INTEGER NULL
        )`,
     );
-    // Migrate older v0.1.x databases that predate the ttft_ms column.
     const cols = await this.db.getAllAsync<ColumnInfo>(
       `PRAGMA table_info(${this.table})`,
     );
-    if (!cols.some((c) => c.name === "ttft_ms")) {
+    const colNames = new Set(cols.map((c) => c.name));
+    if (!colNames.has("ttft_ms")) {
       await this.db.execAsync(
         `ALTER TABLE ${this.table} ADD COLUMN ttft_ms INTEGER NULL`,
+      );
+    }
+    if (!colNames.has("cache_read_input_tokens")) {
+      await this.db.execAsync(
+        `ALTER TABLE ${this.table} ADD COLUMN cache_read_input_tokens INTEGER NULL`,
+      );
+    }
+    if (!colNames.has("cache_creation_input_tokens")) {
+      await this.db.execAsync(
+        `ALTER TABLE ${this.table} ADD COLUMN cache_creation_input_tokens INTEGER NULL`,
       );
     }
     await this.db.execAsync(
@@ -105,8 +128,9 @@ export class SqliteAdapter implements Storage {
     await this.init();
     await this.db.runAsync(
       `INSERT OR REPLACE INTO ${this.table}
-         (request_id, provider, model, input_tokens, output_tokens, latency_ms, cost_usd, timestamp, ttft_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (request_id, provider, model, input_tokens, output_tokens, latency_ms, cost_usd, timestamp,
+          ttft_ms, cache_read_input_tokens, cache_creation_input_tokens)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         event.requestId,
         event.provider,
@@ -117,6 +141,8 @@ export class SqliteAdapter implements Storage {
         event.costUsd,
         event.timestamp,
         event.ttftMs ?? null,
+        event.cacheReadInputTokens ?? null,
+        event.cacheCreationInputTokens ?? null,
       ],
     );
   }

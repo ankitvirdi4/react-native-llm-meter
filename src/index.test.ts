@@ -8,7 +8,7 @@ afterEach(() => {
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.1.3");
+    expect(VERSION).toBe("0.1.4");
   });
 });
 
@@ -54,6 +54,80 @@ describe("computeCost", () => {
   });
 });
 
+describe("computeCost with cache", () => {
+  it("adds cache read cost at 0.1x input rate by default", () => {
+    // Sonnet input is $3 per 1M. Cache read = $0.30 per 1M.
+    // 100k regular + 1M cache reads = 100k*3 + 1M*0.3 = 300k + 300k = 600k = $0.60
+    expect(
+      computeCost("anthropic", "claude-sonnet-4-6", 100_000, 0, {
+        cacheReadInputTokens: 1_000_000,
+      }),
+    ).toBeCloseTo(0.6, 6);
+  });
+
+  it("adds cache create cost at 1.25x input rate by default", () => {
+    // 100k regular at $3/1M + 100k cache creates at $3.75/1M
+    // = 100_000 * 3 + 100_000 * 3.75 = 300_000 + 375_000 = 675_000
+    // / 1M = $0.675
+    expect(
+      computeCost("anthropic", "claude-sonnet-4-6", 100_000, 0, {
+        cacheCreationInputTokens: 100_000,
+      }),
+    ).toBeCloseTo(0.675, 6);
+  });
+
+  it("returns 0 for unknown model regardless of cache extras", () => {
+    expect(
+      computeCost("anthropic", "totally-made-up", 100, 100, {
+        cacheReadInputTokens: 1000,
+      }),
+    ).toBe(0);
+  });
+});
+
+describe("generateId", () => {
+  it("uses crypto.randomUUID when available", async () => {
+    const meter = new Meter();
+    const event = meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+    });
+    await meter.flush();
+    // Node 18+ has globalThis.crypto.randomUUID. Result is a UUID v4.
+    expect(event.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it("falls back to a non UUID id when crypto.randomUUID is missing", async () => {
+    const original = globalThis.crypto;
+    Object.defineProperty(globalThis, "crypto", {
+      value: { ...original, randomUUID: undefined },
+      configurable: true,
+    });
+    try {
+      const meter = new Meter();
+      const event = meter.record({
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+        inputTokens: 1,
+        outputTokens: 1,
+        latencyMs: 1,
+      });
+      await meter.flush();
+      expect(event.requestId).toMatch(/^[a-z0-9]+-[a-z0-9]+$/);
+    } finally {
+      Object.defineProperty(globalThis, "crypto", {
+        value: original,
+        configurable: true,
+      });
+    }
+  });
+});
+
 describe("Meter", () => {
   it("records an event and reads it back", async () => {
     const meter = new Meter();
@@ -66,7 +140,7 @@ describe("Meter", () => {
     });
 
     expect(event.timestamp).toBeGreaterThan(0);
-    expect(event.requestId).toMatch(/^[a-z0-9]+-[a-z0-9]+$/);
+    expect(event.requestId.length).toBeGreaterThan(0);
     expect(event.costUsd).toBeCloseTo((1000 * 3 + 500 * 15) / 1_000_000, 6);
 
     await meter.flush();

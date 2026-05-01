@@ -18,6 +18,7 @@ export interface OpenAILike {
 export interface OpenAICreateParams {
   model: string;
   stream?: boolean;
+  stream_options?: { include_usage?: boolean; [key: string]: unknown };
   [key: string]: unknown;
 }
 
@@ -55,6 +56,8 @@ export function isOpenAIClient(client: unknown): client is OpenAILike {
 }
 
 export function wrapOpenAI<T extends OpenAILike>(client: T, meter: Meter): T {
+  let usageWarningFired = false;
+
   const meteredCreate = async (
     params: OpenAICreateParams,
   ): Promise<OpenAIResponse | OpenAIStream> => {
@@ -64,6 +67,25 @@ export function wrapOpenAI<T extends OpenAILike>(client: T, meter: Meter): T {
     );
 
     if (params?.stream) {
+      // OpenAI streams omit usage by default. Auto enable include_usage so
+      // events record real token counts. Pass through if the user already
+      // set the option (true or false), they get to keep their choice.
+      if (params.stream_options?.include_usage === undefined) {
+        params = {
+          ...params,
+          stream_options: { ...params.stream_options, include_usage: true },
+        };
+        if (!usageWarningFired) {
+          usageWarningFired = true;
+          if (typeof console !== "undefined" && typeof console.warn === "function") {
+            console.warn(
+              "[react-native-llm-meter] Auto enabled stream_options.include_usage on " +
+                "OpenAI streaming so token counts are captured. Set the option " +
+                "explicitly to silence this notice.",
+            );
+          }
+        }
+      }
       const stream = (await originalCreate(params)) as OpenAIStream;
       let model = params.model;
       let inputTokens = 0;

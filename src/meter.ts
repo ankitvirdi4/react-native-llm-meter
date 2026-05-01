@@ -13,6 +13,10 @@ import type { QueryRange, Storage } from "./storage/types.js";
 import type { MeterEvent, MeterEventInput, Provider } from "./types.js";
 
 function generateId(): string {
+  const crypto = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (typeof crypto?.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
@@ -73,10 +77,19 @@ export class Meter {
       latencyMs: input.latencyMs,
       costUsd:
         input.costUsd ??
-        computeCost(input.provider, input.model, input.inputTokens, input.outputTokens),
+        computeCost(input.provider, input.model, input.inputTokens, input.outputTokens, {
+          cacheReadInputTokens: input.cacheReadInputTokens,
+          cacheCreationInputTokens: input.cacheCreationInputTokens,
+        }),
       timestamp: input.timestamp ?? Date.now(),
       requestId: input.requestId ?? generateId(),
       ...(input.ttftMs !== undefined ? { ttftMs: input.ttftMs } : {}),
+      ...(input.cacheReadInputTokens !== undefined
+        ? { cacheReadInputTokens: input.cacheReadInputTokens }
+        : {}),
+      ...(input.cacheCreationInputTokens !== undefined
+        ? { cacheCreationInputTokens: input.cacheCreationInputTokens }
+        : {}),
     };
 
     const promise = this.storage

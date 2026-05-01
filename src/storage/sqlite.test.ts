@@ -183,11 +183,51 @@ describe("SqliteAdapter", () => {
     expect(events).toHaveLength(1);
     expect(events[0].requestId).toBe("legacy-1");
     expect(events[0].ttftMs).toBeUndefined();
+    expect(events[0].cacheReadInputTokens).toBeUndefined();
+    expect(events[0].cacheCreationInputTokens).toBeUndefined();
 
-    // New writes set ttft_ms successfully.
-    await adapter.append(makeEvent({ requestId: "fresh", ttftMs: 42 }));
+    // New writes set the new columns successfully.
+    await adapter.append(
+      makeEvent({
+        requestId: "fresh",
+        ttftMs: 42,
+        cacheReadInputTokens: 100,
+        cacheCreationInputTokens: 50,
+      }),
+    );
     const after = await adapter.query();
-    expect(after.find((e) => e.requestId === "fresh")?.ttftMs).toBe(42);
+    const fresh = after.find((e) => e.requestId === "fresh");
+    expect(fresh?.ttftMs).toBe(42);
+    expect(fresh?.cacheReadInputTokens).toBe(100);
+    expect(fresh?.cacheCreationInputTokens).toBe(50);
+  });
+
+  it("migrates a v0.1.2 schema by adding cache columns only", async () => {
+    // Simulate a v0.1.2 / v0.1.3 database that has ttft_ms but no cache columns.
+    const db = makeBetterSqliteDb();
+    await db.execAsync(
+      `CREATE TABLE llm_meter_events (
+         request_id TEXT PRIMARY KEY,
+         provider TEXT NOT NULL,
+         model TEXT NOT NULL,
+         input_tokens INTEGER NOT NULL,
+         output_tokens INTEGER NOT NULL,
+         latency_ms INTEGER NOT NULL,
+         cost_usd REAL NOT NULL,
+         timestamp INTEGER NOT NULL,
+         ttft_ms INTEGER NULL
+       )`,
+    );
+
+    const adapter = new SqliteAdapter({ db });
+    await adapter.append(
+      makeEvent({
+        requestId: "post-migration",
+        cacheReadInputTokens: 200,
+      }),
+    );
+    const events = await adapter.query();
+    expect(events[0].cacheReadInputTokens).toBe(200);
   });
 
   it("supports a custom tableName", async () => {

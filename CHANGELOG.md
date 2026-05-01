@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.4 (2026-05-01)
+
+### Added
+
+- Anthropic prompt cache cost detail. `MeterEvent` gains optional `cacheReadInputTokens` and `cacheCreationInputTokens`. The Anthropic wrapper extracts both from `response.usage` (and from `message_start.message.usage` on streams). `computeCost` adds cache cost at 0.1x input rate for reads and 1.25x for writes by default; `ModelPricing` accepts explicit `cacheRead` and `cacheCreate` overrides.
+- OpenAI streaming auto enables `stream_options.include_usage` when the user did not set it. Without this option OpenAI omits token counts from the stream entirely. The library logs a one time warning per wrapped client. Pass the option explicitly (true or false) to silence and keep your choice.
+- IDs use `globalThis.crypto.randomUUID()` when available (Node 19 plus, modern Hermes), with a Math based fallback for older runtimes.
+
+### Migrations
+
+- SqliteAdapter adds `cache_read_input_tokens` and `cache_creation_input_tokens` columns. Existing v0.1.x databases are upgraded transparently via `ALTER TABLE ADD COLUMN` checks during init.
+
+### Documentation
+
+- README Remote sink section now documents server side deduplication via `requestId` so that retries land idempotently. Server issued ack tokens are on the v0.3 roadmap.
+
 ## 0.1.3 (2026-05-01)
 
 ### Added
