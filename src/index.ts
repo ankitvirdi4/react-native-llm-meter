@@ -1,4 +1,4 @@
-export const VERSION = "0.0.6";
+export const VERSION = "0.0.7";
 
 export { Meter } from "./meter.js";
 export type { MeterListener, MeterOptions } from "./meter.js";
@@ -37,6 +37,12 @@ export type {
   AsyncStorageAdapterOptions,
   AsyncStorageLike,
 } from "./storage/async-storage.js";
+export { SqliteAdapter } from "./storage/sqlite.js";
+export type {
+  SqliteAdapterOptions,
+  SqliteDatabaseLike,
+  SqliteParams,
+} from "./storage/sqlite.js";
 export type { QueryRange, Storage } from "./storage/types.js";
 export { percentile, summarize, summarizeBy } from "./aggregate.js";
 export type { GroupBy, Summary } from "./aggregate.js";
