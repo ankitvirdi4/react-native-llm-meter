@@ -1,0 +1,20 @@
+---
+name: Feature request
+about: Suggest an idea or improvement
+title: "[feature] "
+labels: enhancement
+---
+
+Thanks for the idea! ✨
+
+**What would you like to see?**
+A clear, short description of the feature.
+
+**What problem does it solve?**
+Why this matters — the user need or pain point behind the request.
+
+**Alternatives you've considered**
+Any workarounds or related approaches.
+
+**Additional context**
+Links, sketches, references — anything that helps.

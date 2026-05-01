@@ -1,0 +1,76 @@
+{
+  "name": "react-native-llm-meter",
+  "version": "0.0.1",
+  "description": "LLM observability for React Native and Expo. Token usage, cost, and latency metrics — on-device, multi-provider.",
+  "license": "MIT",
+  "author": "Ankit Virdi <ankit@example.com> (https://github.com/ankitvirdi4)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ankitvirdi4/react-native-llm-meter.git"
+  },
+  "homepage": "https://github.com/ankitvirdi4/react-native-llm-meter#readme",
+  "bugs": {
+    "url": "https://github.com/ankitvirdi4/react-native-llm-meter/issues"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "llm",
+    "observability",
+    "anthropic",
+    "claude",
+    "openai",
+    "gemini",
+    "tokens",
+    "cost",
+    "metering",
+    "telemetry"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.19.0",
+    "react": ">=18",
+    "react-native": ">=0.72"
+  },
+  "peerDependenciesMeta": {
+    "@react-native-async-storage/async-storage": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@react-native-async-storage/async-storage": "^1.23.1",
+    "@types/react": "^18.3.3",
+    "@types/react-native": "^0.73.0",
+    "tsup": "^8.2.4",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
