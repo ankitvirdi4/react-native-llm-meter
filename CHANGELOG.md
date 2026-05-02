@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- v0.3.0 closes the remaining v0.2.x review gaps and adds a few small DX wins.
+
+  Added:
+
+  - `useEvents(opts?)` hook on the `react-native-llm-meter/react` subpath. Returns `{ events, loading, refresh }` and auto refreshes when the meter records, mirroring `useMetrics` semantics. Useful for "recent calls" lists in dev UIs.
+  - `meter.purge(olderThanTimestamp)` public API. Delegates to `storage.evict` if implemented; returns the number of events removed. All shipped adapters (Memory, AsyncStorage, SQLite) now expose `evict`.
+  - Server issued ack tokens for `RemoteSink`. The `send` method may now resolve with `{ accepted: false, reason? }` to trigger retry. Resolving with void or `{ accepted: true }` continues to indicate success. `HttpRemoteSink` gains an `expectAckResponse` option (default false) to parse the response body and honour the ack.
+  - `MemoryStorage` and `SqliteAdapter` gained `evict(olderThanTimestamp)` to match the optional method on the `Storage` interface. `AsyncStorageAdapter.evict` already existed.
+  - Coverage badge in README. 99 percent line coverage, manually maintained for now.
+
+  Adoption:
+
+  - Project now uses [changesets](https://github.com/changesets/changesets) for release management. Each change adds a `.changeset/*.md` file with the version impact; `npx changeset version` bumps the version and updates the CHANGELOG, `npx changeset publish` runs npm publish. Eliminates the version mismatch slips that bit us during the v0.0.x to v0.2.x run.
+
 ## 0.2.2 (2026-05-01)
 
 ### Fixed

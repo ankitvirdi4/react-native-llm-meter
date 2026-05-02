@@ -7,7 +7,13 @@ afterEach(() => {
   cleanup();
 });
 import { Meter } from "../meter.js";
-import { MeterProvider, useBudget, useMeter, useMetrics } from "./hooks.js";
+import {
+  MeterProvider,
+  useBudget,
+  useEvents,
+  useMeter,
+  useMetrics,
+} from "./hooks.js";
 
 function wrapperFor(meter: Meter) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -126,6 +132,70 @@ describe("useMetrics", () => {
     );
 
     await waitFor(() => expect(result.current.summary?.count).toBe(1));
+  });
+});
+
+describe("useEvents", () => {
+  it("loads events and refreshes when the meter records", async () => {
+    const meter = new Meter();
+    const { result } = renderHook(() => useEvents(), {
+      wrapper: wrapperFor(meter),
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.events).toEqual([]);
+
+    await act(async () => {
+      meter.record({
+        provider: "anthropic",
+        model: "claude-haiku-4-5",
+        inputTokens: 10,
+        outputTokens: 5,
+        latencyMs: 50,
+      });
+      await meter.flush();
+    });
+
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+  });
+
+  it("respects from and to range", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+      timestamp: 1000,
+    });
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+      timestamp: 5000,
+    });
+    await meter.flush();
+
+    const { result } = renderHook(
+      () => useEvents({ from: 2000, to: 6000 }),
+      { wrapper: wrapperFor(meter) },
+    );
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+  });
+
+  it("manual refresh re-queries", async () => {
+    const meter = new Meter();
+    const { result } = renderHook(() => useEvents(), {
+      wrapper: wrapperFor(meter),
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.events).toEqual([]);
   });
 });
 

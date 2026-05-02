@@ -261,6 +261,17 @@ describe("SqliteAdapter", () => {
     expect(events[0].tags).toBeUndefined();
   });
 
+  it("evict removes events older than the cutoff", async () => {
+    const adapter = new SqliteAdapter({ db: makeBetterSqliteDb() });
+    await adapter.append(makeEvent({ requestId: "old", timestamp: 100 }));
+    await adapter.append(makeEvent({ requestId: "mid", timestamp: 500 }));
+    await adapter.append(makeEvent({ requestId: "new", timestamp: 900 }));
+
+    const removed = await adapter.evict(600);
+    expect(removed).toBe(2);
+    expect((await adapter.query()).map((e) => e.requestId)).toEqual(["new"]);
+  });
+
   it("supports a custom tableName", async () => {
     const db = makeBetterSqliteDb();
     const adapter = new SqliteAdapter({ db, tableName: "custom_table" });

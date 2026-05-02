@@ -71,6 +71,41 @@ describe("HttpRemoteSink", () => {
     await expect(sink.send([])).rejects.toThrow(/HTTP 503/);
   });
 
+  it("returns ack rejection when expectAckResponse is set and body says rejected", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return { accepted: false, reason: "rate limit" };
+      },
+    } as unknown as Response));
+    const sink = new HttpRemoteSink({
+      url: "https://example.test/api",
+      fetch: fetchMock,
+      expectAckResponse: true,
+    });
+
+    const result = await sink.send([]);
+    expect(result).toEqual({ accepted: false, reason: "rate limit" });
+  });
+
+  it("treats unparseable JSON body as success when expectAckResponse is set", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        throw new Error("not json");
+      },
+    } as unknown as Response));
+    const sink = new HttpRemoteSink({
+      url: "https://example.test/api",
+      fetch: fetchMock,
+      expectAckResponse: true,
+    });
+
+    await expect(sink.send([])).resolves.toBeUndefined();
+  });
+
   it("aborts the request when timeoutMs elapses", async () => {
     const fetchMock = vi.fn(
       (_url: string, init?: RequestInit) =>
@@ -205,6 +240,61 @@ describe("attachRemoteSink", () => {
     await meter.flush();
     await vi.runAllTimersAsync();
     // No assertion needed; the test passes if nothing throws.
+
+    detach();
+  });
+
+  it("retries when sink resolves with accepted: false", async () => {
+    let calls = 0;
+    const sink: RemoteSink = {
+      async send() {
+        calls++;
+        if (calls < 3) return { accepted: false, reason: "server busy" };
+        return { accepted: true };
+      },
+    };
+    const errors: unknown[] = [];
+    const meter = new Meter();
+    const detach = attachRemoteSink(meter, {
+      sink,
+      batchSize: 1,
+      maxRetries: 3,
+      backoffBaseMs: 10,
+      onError: (err) => errors.push(err),
+    });
+
+    recordSomething(meter);
+    await meter.flush();
+    await vi.runAllTimersAsync();
+
+    expect(calls).toBe(3);
+    expect(errors).toEqual([]);
+
+    detach();
+  });
+
+  it("calls onError when sink ack rejects past maxRetries", async () => {
+    const sink: RemoteSink = {
+      async send() {
+        return { accepted: false, reason: "permanent" };
+      },
+    };
+    const errors: { err: unknown }[] = [];
+    const meter = new Meter();
+    const detach = attachRemoteSink(meter, {
+      sink,
+      batchSize: 1,
+      maxRetries: 1,
+      backoffBaseMs: 10,
+      onError: (err) => errors.push({ err }),
+    });
+
+    recordSomething(meter);
+    await meter.flush();
+    await vi.runAllTimersAsync();
+
+    expect(errors).toHaveLength(1);
+    expect((errors[0].err as Error).message).toMatch(/permanent/);
 
     detach();
   });

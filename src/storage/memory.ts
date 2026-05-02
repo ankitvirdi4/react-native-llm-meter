@@ -19,4 +19,10 @@ export class MemoryStorage implements Storage {
   async clear(): Promise<void> {
     this.events = [];
   }
+
+  async evict(olderThanTimestamp: number): Promise<number> {
+    const before = this.events.length;
+    this.events = this.events.filter((e) => e.timestamp >= olderThanTimestamp);
+    return before - this.events.length;
+  }
 }

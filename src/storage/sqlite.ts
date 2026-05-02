@@ -188,6 +188,19 @@ export class SqliteAdapter implements Storage {
     await this.db.execAsync(`DELETE FROM ${this.table}`);
   }
 
+  async evict(olderThanTimestamp: number): Promise<number> {
+    await this.init();
+    const before = await this.db.getAllAsync<{ count: number }>(
+      `SELECT COUNT(*) as count FROM ${this.table} WHERE timestamp < ?`,
+      [olderThanTimestamp],
+    );
+    await this.db.runAsync(
+      `DELETE FROM ${this.table} WHERE timestamp < ?`,
+      [olderThanTimestamp],
+    );
+    return before[0]?.count ?? 0;
+  }
+
   async migrateFrom(
     other: Storage,
     opts: { clearSource?: boolean } = {},

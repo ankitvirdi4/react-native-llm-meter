@@ -1,8 +1,16 @@
 import type { Meter } from "./meter.js";
 import type { MeterEvent } from "./types.js";
 
+export interface RemoteSinkAck {
+  accepted: boolean;
+  reason?: string;
+}
+
 export interface RemoteSink {
-  send(events: MeterEvent[]): Promise<void>;
+  // Resolve with void or { accepted: true } to indicate success.
+  // Resolve with { accepted: false, reason? } to trigger retry.
+  // Reject (throw) to trigger retry the same way.
+  send(events: MeterEvent[]): Promise<void | RemoteSinkAck>;
 }
 
 export class NoopRemoteSink implements RemoteSink {
@@ -16,6 +24,9 @@ export interface HttpRemoteSinkOptions {
   headers?: Record<string, string>;
   fetch?: typeof fetch;
   timeoutMs?: number;
+  // When true, parse the JSON response body for { accepted, reason } and
+  // honour it. When false (default), any HTTP 2xx is treated as success.
+  expectAckResponse?: boolean;
 }
 
 const DEFAULT_HTTP_TIMEOUT_MS = 10_000;
@@ -25,6 +36,7 @@ export class HttpRemoteSink implements RemoteSink {
   private readonly headers: Record<string, string>;
   private readonly fetchFn: typeof fetch;
   private readonly timeoutMs: number;
+  private readonly expectAckResponse: boolean;
 
   constructor(opts: HttpRemoteSinkOptions) {
     this.url = opts.url;
@@ -35,9 +47,10 @@ export class HttpRemoteSink implements RemoteSink {
     }
     this.fetchFn = f;
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS;
+    this.expectAckResponse = opts.expectAckResponse ?? false;
   }
 
-  async send(events: MeterEvent[]): Promise<void> {
+  async send(events: MeterEvent[]): Promise<void | RemoteSinkAck> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -51,6 +64,16 @@ export class HttpRemoteSink implements RemoteSink {
         throw new Error(
           `HttpRemoteSink: HTTP ${response.status} from ${this.url}`,
         );
+      }
+      if (this.expectAckResponse) {
+        try {
+          const body = (await response.json()) as RemoteSinkAck;
+          if (body && body.accepted === false) {
+            return { accepted: false, reason: body.reason };
+          }
+        } catch {
+          // Body not JSON or unparseable. Treat as accepted since HTTP was 2xx.
+        }
       }
     } finally {
       clearTimeout(timer);
@@ -90,14 +113,22 @@ export function attachRemoteSink(
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (detached) return;
       try {
-        await opts.sink.send(batch);
-        return;
+        const result = await opts.sink.send(batch);
+        if (result && typeof result === "object" && result.accepted === false) {
+          lastErr = new Error(
+            result.reason
+              ? `Sink rejected batch: ${result.reason}`
+              : "Sink rejected batch",
+          );
+        } else {
+          return;
+        }
       } catch (err) {
         lastErr = err;
-        if (attempt === maxRetries) break;
-        const delay = backoffBaseMs * Math.pow(2, attempt);
-        await new Promise<void>((resolve) => setTimeout(resolve, delay));
       }
+      if (attempt === maxRetries) break;
+      const delay = backoffBaseMs * Math.pow(2, attempt);
+      await new Promise<void>((resolve) => setTimeout(resolve, delay));
     }
     if (opts.onError) {
       try {

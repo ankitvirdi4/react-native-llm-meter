@@ -58,6 +58,16 @@ describe("MemoryStorage", () => {
     expect(await storage.query()).toHaveLength(0);
   });
 
+  it("evict removes events older than the cutoff", async () => {
+    const storage = new MemoryStorage();
+    await storage.append(makeEvent({ requestId: "old", timestamp: 100 }));
+    await storage.append(makeEvent({ requestId: "new", timestamp: 500 }));
+
+    const removed = await storage.evict(200);
+    expect(removed).toBe(1);
+    expect((await storage.query()).map((e) => e.requestId)).toEqual(["new"]);
+  });
+
   it("query returns a fresh array, mutation does not affect store", async () => {
     const storage = new MemoryStorage();
     await storage.append(makeEvent());

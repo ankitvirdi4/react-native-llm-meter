@@ -1,4 +1,4 @@
-export const VERSION = "0.2.2";
+export const VERSION = "0.3.0";
 
 export { Meter } from "./meter.js";
 export type {
@@ -82,6 +82,7 @@ export type {
   AttachRemoteSinkOptions,
   HttpRemoteSinkOptions,
   RemoteSink,
+  RemoteSinkAck,
 } from "./remote.js";
 export { percentile, summarize, summarizeBy } from "./aggregate.js";
 export type { GroupBy, Summary } from "./aggregate.js";

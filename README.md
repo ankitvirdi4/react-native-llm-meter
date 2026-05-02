@@ -2,6 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/react-native-llm-meter.svg)](https://www.npmjs.com/package/react-native-llm-meter)
 [![CI](https://github.com/ankitvirdi4/react-native-llm-meter/actions/workflows/ci.yml/badge.svg)](https://github.com/ankitvirdi4/react-native-llm-meter/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen.svg)](#tests)
 [![License](https://img.shields.io/npm/l/react-native-llm-meter.svg)](./LICENSE)
 [![Bundle size](https://img.shields.io/bundlephobia/minzip/react-native-llm-meter)](https://bundlephobia.com/package/react-native-llm-meter)
 [![Types](https://img.shields.io/npm/types/react-native-llm-meter.svg)](https://www.npmjs.com/package/react-native-llm-meter)

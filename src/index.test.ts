@@ -8,7 +8,7 @@ afterEach(() => {
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.2.2");
+    expect(VERSION).toBe("0.3.0");
   });
 });
 
@@ -388,6 +388,43 @@ describe("Meter", () => {
 
     const s = await meter.summary({ from: 2000, to: 6000 });
     expect(s.count).toBe(1);
+  });
+
+  it("purge delegates to storage.evict and returns the count", async () => {
+    const meter = new Meter();
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+      timestamp: 1000,
+    });
+    meter.record({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      inputTokens: 1,
+      outputTokens: 1,
+      latencyMs: 1,
+      timestamp: 5000,
+    });
+    await meter.flush();
+
+    const removed = await meter.purge(2000);
+    expect(removed).toBe(1);
+    expect(await meter.getEvents()).toHaveLength(1);
+  });
+
+  it("purge returns 0 when storage does not implement evict", async () => {
+    const noEvict = {
+      async append() {},
+      async query() {
+        return [];
+      },
+      async clear() {},
+    };
+    const meter = new Meter({ storage: noEvict });
+    expect(await meter.purge(Date.now())).toBe(0);
   });
 
   it("subscribe fires after storage commits, can be unsubscribed", async () => {

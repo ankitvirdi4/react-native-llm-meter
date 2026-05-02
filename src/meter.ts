@@ -142,6 +142,11 @@ export class Meter {
     await this.storage.clear();
   }
 
+  async purge(olderThanTimestamp: number): Promise<number> {
+    if (typeof this.storage.evict !== "function") return 0;
+    return this.storage.evict(olderThanTimestamp);
+  }
+
   async summary(opts: SummaryOptions = {}): Promise<SummaryResult> {
     const events = await this.storage.query({ from: opts.from, to: opts.to });
     const flat = summarize(events);

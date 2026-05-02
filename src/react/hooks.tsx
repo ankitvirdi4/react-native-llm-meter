@@ -14,6 +14,8 @@ import {
   summarizeBy,
 } from "../aggregate.js";
 import type { Meter } from "../meter.js";
+import type { QueryRange } from "../storage/types.js";
+import type { MeterEvent } from "../types.js";
 
 const MeterContext = createContext<Meter | null>(null);
 
@@ -76,6 +78,40 @@ export function useMetrics(opts: UseMetricsOptions = {}): UseMetricsResult {
   }, [meter]);
 
   return { summary, byGroup, loading, refresh };
+}
+
+export interface UseEventsOptions extends QueryRange {}
+
+export interface UseEventsResult {
+  events: MeterEvent[];
+  loading: boolean;
+  refresh: () => Promise<void>;
+}
+
+export function useEvents(opts: UseEventsOptions = {}): UseEventsResult {
+  const meter = useMeter();
+  const { from, to } = opts;
+  const [events, setEvents] = useState<MeterEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const list = await meter.getEvents({ from, to });
+    setEvents(list);
+    setLoading(false);
+  }, [meter, from, to]);
+
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => {
+    void refreshRef.current();
+    return meter.subscribe(() => {
+      void refreshRef.current();
+    });
+  }, [meter]);
+
+  return { events, loading, refresh };
 }
 
 export type BudgetPeriod = "day" | "week" | "month";
