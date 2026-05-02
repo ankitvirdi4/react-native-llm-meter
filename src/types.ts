@@ -21,6 +21,11 @@ export interface MeterEvent {
   // Free form tags for grouping and filtering. Useful for userId, sessionId,
   // featureName, releaseChannel, etc. Stored as JSON in SQLite.
   tags?: Record<string, string>;
+  // Number of internal retries the provider SDK performed before this call
+  // resolved or rejected. Currently optional and user supplied. Provider SDKs
+  // do not expose retry counts via stable hooks, so the wrap layer cannot
+  // auto populate this. See README troubleshooting for the full caveat.
+  retryCount?: number;
 }
 
 export type MeterEventInput = Omit<MeterEvent, "timestamp" | "requestId" | "costUsd"> & {

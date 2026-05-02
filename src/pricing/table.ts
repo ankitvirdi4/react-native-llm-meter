@@ -19,6 +19,14 @@ export interface ModelPricing {
   // input * 0.1 for reads and input * 1.25 for writes (Anthropic standard).
   cacheRead?: number;
   cacheCreate?: number;
+  // Long context tier. When inputTokens crosses threshold, the entire input
+  // and output are billed at the longContext rates instead of the base rates.
+  // Anthropic uses this scheme for Sonnet 4.x above 200k tokens.
+  longContext?: {
+    threshold: number;
+    input: number;
+    output: number;
+  };
 }
 
 export type PricingTable = Record<Provider, Record<string, ModelPricing>>;
@@ -30,10 +38,26 @@ export const PRICING: PricingTable = {
     "claude-opus-4-6": { input: 15, output: 75 },
     "claude-opus-4-1": { input: 15, output: 75 },
     "claude-opus-4-0": { input: 15, output: 75 },
-    "claude-sonnet-4-7": { input: 3, output: 15 },
-    "claude-sonnet-4-6": { input: 3, output: 15 },
-    "claude-sonnet-4-5": { input: 3, output: 15 },
-    "claude-sonnet-4-0": { input: 3, output: 15 },
+    "claude-sonnet-4-7": {
+      input: 3,
+      output: 15,
+      longContext: { threshold: 200_000, input: 6, output: 22.5 },
+    },
+    "claude-sonnet-4-6": {
+      input: 3,
+      output: 15,
+      longContext: { threshold: 200_000, input: 6, output: 22.5 },
+    },
+    "claude-sonnet-4-5": {
+      input: 3,
+      output: 15,
+      longContext: { threshold: 200_000, input: 6, output: 22.5 },
+    },
+    "claude-sonnet-4-0": {
+      input: 3,
+      output: 15,
+      longContext: { threshold: 200_000, input: 6, output: 22.5 },
+    },
     "claude-haiku-4-5": { input: 1, output: 5 },
     "claude-haiku-4-0": { input: 0.8, output: 4 },
     // Claude 3.7

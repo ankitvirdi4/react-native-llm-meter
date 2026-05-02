@@ -476,6 +476,15 @@ Import from the main entry (`react-native-llm-meter`), not the overlay
 subpath. The overlay imports React Native components which are not available
 in Node.
 
+**`latencyMs` looks higher than the API actually took.**
+`latencyMs` reflects total wall clock from `client.method()` invocation to its
+resolution. If the provider SDK retried internally on 429s or transient
+errors, all retry attempts are folded into this number. Provider SDKs do not
+expose retry counts via stable hooks, so the wrap layer cannot subtract them
+out. If you can capture retry count yourself (custom fetch middleware, SDK
+internals), pass it via `retryCount` to `meter.record` and we'll preserve it
+on the event for your own analysis.
+
 ## About
 
 Built by [Ankit Virdi](https://github.com/ankitvirdi4).

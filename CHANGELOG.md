@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.1
+
+### Patch Changes
+
+- v0.3.1 patch with three small additive items.
+
+  Added:
+
+  - **Long context tier pricing.** `ModelPricing` gains an optional `longContext: { threshold, input, output }` block. When `inputTokens` reaches the threshold, the entire input and output (and any cache rates that fall back to a multiple of input) are billed at the long context rates instead of the base rates. Anthropic Sonnet 4 family (4-0, 4-5, 4-6, 4-7) is now populated with the standard $6 input / $22.5 output rates above 200k tokens.
+  - **`meter.validate(opts?)` and `validatePricingTable(opts?)`.** Returns an array of `ValidationIssue` objects describing structural problems with the pricing table: zero or negative prices, malformed `longContext` blocks, low long context rates relative to base. Useful for catching drift after community PRs to the pricing table. Also exports `isModelKnown(provider, model)` as a small public helper.
+  - **`MeterEvent.retryCount`** as an optional field. Provider SDKs do not expose retry counts via stable hooks, so the wrap layer cannot auto populate it. Users who can capture retry count themselves (custom fetch middleware, SDK internals) can pass it through `meter.record` and we'll preserve it on the event for analysis. README troubleshooting documents the current limitation honestly.
+
+  Notes:
+
+  - One pre existing test had to be updated. `computeCost("anthropic", "claude-sonnet-4-6", 1_000_000, 500_000)` previously expected $10.50 at the base rate. With the new long context tier it now correctly returns $17.25. The test was rewritten to use 100k input + 50k output so it explicitly verifies the base rate path.
+
 ## 0.3.0
 
 ### Minor Changes

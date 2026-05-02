@@ -1,4 +1,4 @@
-export const VERSION = "0.3.0";
+export const VERSION = "0.3.1";
 
 export { Meter } from "./meter.js";
 export type {
@@ -10,6 +10,15 @@ export type {
 export { computeCost } from "./pricing/compute.js";
 export { PRICING } from "./pricing/table.js";
 export type { ModelPricing, PricingTable } from "./pricing/table.js";
+export {
+  isModelKnown,
+  validatePricingTable,
+} from "./pricing/validate.js";
+export type {
+  ValidationIssue,
+  ValidationOptions,
+  ValidationSeverity,
+} from "./pricing/validate.js";
 export { isAnthropicClient, wrapAnthropic } from "./providers/anthropic.js";
 export type {
   AnthropicCreateParams,

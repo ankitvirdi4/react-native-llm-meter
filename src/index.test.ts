@@ -8,7 +8,7 @@ afterEach(() => {
 
 describe("VERSION", () => {
   it("matches package version", () => {
-    expect(VERSION).toBe("0.3.0");
+    expect(VERSION).toBe("0.3.1");
   });
 });
 
@@ -33,8 +33,10 @@ describe("pricing breadth", () => {
 });
 
 describe("computeCost", () => {
-  it("computes Anthropic Sonnet cost from token counts", () => {
-    expect(computeCost("anthropic", "claude-sonnet-4-6", 1_000_000, 500_000)).toBeCloseTo(10.5, 6);
+  it("computes Anthropic Sonnet cost from token counts at base rate", () => {
+    // 100k input + 50k output, below the 200k long context threshold.
+    // 100_000 * 3 + 50_000 * 15 = 300_000 + 750_000 = 1_050_000 / 1M = $1.05
+    expect(computeCost("anthropic", "claude-sonnet-4-6", 100_000, 50_000)).toBeCloseTo(1.05, 6);
   });
 
   it("computes OpenAI gpt-4o-mini cost from token counts", () => {
@@ -51,6 +53,45 @@ describe("computeCost", () => {
 
   it("returns 0 for zero tokens", () => {
     expect(computeCost("anthropic", "claude-sonnet-4-6", 0, 0)).toBe(0);
+  });
+});
+
+describe("computeCost long context tier", () => {
+  it("uses base rate when input is below the long context threshold", () => {
+    // Sonnet 4-6 base: $3 input, $15 output. longContext: $6 input, $22.5 output at 200k.
+    // 100k * 3 + 50k * 15 = 300k + 750k = 1.05M / 1M = 1.05
+    expect(
+      computeCost("anthropic", "claude-sonnet-4-6", 100_000, 50_000),
+    ).toBeCloseTo(1.05, 6);
+  });
+
+  it("uses long context rate when input crosses the threshold", () => {
+    // 250k * 6 + 50k * 22.5 = 1.5M + 1.125M = 2.625M / 1M = 2.625
+    expect(
+      computeCost("anthropic", "claude-sonnet-4-6", 250_000, 50_000),
+    ).toBeCloseTo(2.625, 6);
+  });
+
+  it("uses long context rate exactly at the threshold (>=)", () => {
+    // 200k input == threshold. Uses longContext rate: 200k * 6 + 0 = 1.2M / 1M = 1.2
+    expect(
+      computeCost("anthropic", "claude-sonnet-4-6", 200_000, 0),
+    ).toBeCloseTo(1.2, 6);
+  });
+
+  it("models without longContext set use base rate regardless of input size", () => {
+    // gpt-4o has no longContext. 1M * 2.5 + 0 = 2.5M / 1M = 2.5
+    expect(computeCost("openai", "gpt-4o", 1_000_000, 0)).toBeCloseTo(2.5, 6);
+  });
+
+  it("cache rates scale to long context input rate when crossing the threshold", () => {
+    // At long context: input rate = 6, default cache read = input * 0.1 = 0.6
+    // 200k input * 6 + 100k cache reads * 0.6 = 1.2M + 60k = 1.26M / 1M = 1.26
+    expect(
+      computeCost("anthropic", "claude-sonnet-4-6", 200_000, 0, {
+        cacheReadInputTokens: 100_000,
+      }),
+    ).toBeCloseTo(1.26, 6);
   });
 });
 
@@ -425,6 +466,48 @@ describe("Meter", () => {
     };
     const meter = new Meter({ storage: noEvict });
     expect(await meter.purge(Date.now())).toBe(0);
+  });
+
+  it("preserves user supplied retryCount on the recorded event", async () => {
+    const meter = new Meter();
+    const event = meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 100,
+      outputTokens: 50,
+      latencyMs: 200,
+      retryCount: 2,
+    });
+    await meter.flush();
+    expect(event.retryCount).toBe(2);
+  });
+
+  it("leaves retryCount undefined when not supplied", async () => {
+    const meter = new Meter();
+    const event = meter.record({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      inputTokens: 100,
+      outputTokens: 50,
+      latencyMs: 200,
+    });
+    await meter.flush();
+    expect(event.retryCount).toBeUndefined();
+  });
+
+  it("validate returns no errors for the shipped table", () => {
+    const meter = new Meter();
+    const issues = meter.validate();
+    expect(issues.filter((i) => i.severity === "error")).toEqual([]);
+  });
+
+  it("validate scopes to provider and model when requested", () => {
+    const meter = new Meter();
+    const issues = meter.validate({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+    });
+    expect(issues).toEqual([]);
   });
 
   it("subscribe fires after storage commits, can be unsubscribed", async () => {

@@ -7,6 +7,11 @@ import {
 import { type BudgetOptions, setBudgetWatcher } from "./budget.js";
 import { computeCost } from "./pricing/compute.js";
 import { PRICING } from "./pricing/table.js";
+import {
+  type ValidationIssue,
+  type ValidationOptions,
+  validatePricingTable,
+} from "./pricing/validate.js";
 import { isAnthropicClient, wrapAnthropic } from "./providers/anthropic.js";
 import {
   isGoogleClient,
@@ -115,6 +120,7 @@ export class Meter {
         ? { cacheCreationInputTokens: input.cacheCreationInputTokens }
         : {}),
       ...(input.tags !== undefined ? { tags: input.tags } : {}),
+      ...(input.retryCount !== undefined ? { retryCount: input.retryCount } : {}),
     };
 
     const promise = this.storage
@@ -145,6 +151,10 @@ export class Meter {
   async purge(olderThanTimestamp: number): Promise<number> {
     if (typeof this.storage.evict !== "function") return 0;
     return this.storage.evict(olderThanTimestamp);
+  }
+
+  validate(opts?: ValidationOptions): ValidationIssue[] {
+    return validatePricingTable(opts);
   }
 
   async summary(opts: SummaryOptions = {}): Promise<SummaryResult> {

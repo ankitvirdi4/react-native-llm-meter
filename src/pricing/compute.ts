@@ -16,14 +16,21 @@ export function computeCost(
   const price = PRICING[provider]?.[model];
   if (!price) return 0;
 
-  let cost = inputTokens * price.input + outputTokens * price.output;
+  const useLongContext =
+    price.longContext !== undefined &&
+    inputTokens >= price.longContext.threshold;
+
+  const inputRate = useLongContext ? price.longContext!.input : price.input;
+  const outputRate = useLongContext ? price.longContext!.output : price.output;
+
+  let cost = inputTokens * inputRate + outputTokens * outputRate;
 
   if (extras.cacheReadInputTokens) {
-    const rate = price.cacheRead ?? price.input * 0.1;
+    const rate = price.cacheRead ?? inputRate * 0.1;
     cost += extras.cacheReadInputTokens * rate;
   }
   if (extras.cacheCreationInputTokens) {
-    const rate = price.cacheCreate ?? price.input * 1.25;
+    const rate = price.cacheCreate ?? inputRate * 1.25;
     cost += extras.cacheCreationInputTokens * rate;
   }
 
